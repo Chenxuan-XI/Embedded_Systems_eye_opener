@@ -28,7 +28,8 @@ def read_ads1115():
 
 # Si7021 definitions
 SI7021_ADDR = 0x40
-SI7021_READ_TEMPERATURE = 0xF3  # No Hold Master
+SI7021_READ_TEMPERATURE = 0xF3
+SI7021_READ_HUMIDITY = 0xF5
 
 def read_si7021_temperature():
     write = i2c_msg.write(SI7021_ADDR, [SI7021_READ_TEMPERATURE])
@@ -46,15 +47,32 @@ def read_si7021_temperature():
     return temperature
 
 
+def read_si7021_humidity():
+    write = i2c_msg.write(SI7021_ADDR, [SI7021_READ_HUMIDITY])
+    bus.i2c_rdwr(write)
+
+    time.sleep(0.1)
+
+    read = i2c_msg.read(SI7021_ADDR, 2)
+    bus.i2c_rdwr(read)
+
+    data = list(read)
+    raw = (data[0] << 8) | data[1]
+
+    humidity = (125.0 * raw) / 65536.0 - 6.0
+    return humidity
+
 
 # Main loop
 while True:
     try:
         adc_value = read_ads1115()
         temperature = read_si7021_temperature()
+        humidity = read_si7021_humidity()
 
         print(f"ADC raw: {adc_value}")
         print(f"Temperature: {temperature:.2f} °C")
+        print(f"Humidity: {humidity:.2f} %RH")
         print("-" * 30)
 
         time.sleep(0.5)
@@ -62,3 +80,4 @@ while True:
     except Exception as e:
         print("Error:", e)
         break
+
