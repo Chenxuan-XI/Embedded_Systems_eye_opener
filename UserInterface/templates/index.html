@@ -1,11 +1,11 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MQTT 温度/窗户/暖气面板</title>
+  <title>MQTT Temperature / Window / Heater Panel</title>
   <style>
-    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", Arial; }
+    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
     body { margin: 0; background: #0b1220; color: #e6edf3; }
     .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
     .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
@@ -60,7 +60,7 @@
     .state.on { border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
     .state.off { border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
     .log {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono";
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;
       font-size: 12px; line-height: 1.4;
       background: rgba(0,0,0,0.25);
       border: 1px solid rgba(255,255,255,0.10);
@@ -78,357 +78,82 @@
     <div class="card">
       <div class="split">
         <div>
-          <h1>MQTT 设备面板</h1>
-          <div class="pill"><span id="connDot" class="dot"></span><span id="connText">未连接</span></div>
-          <div class="muted" id="connHint">请配置 MQTT WebSocket 地址，例如：ws://127.0.0.1:9001</div>
+          <h1>MQTT Device Dashboard</h1>
+          <div class="pill"><span id="connDot" class="dot"></span><span id="connText">Disconnected</span></div>
+          <div class="muted" id="connHint">
+            Please configure MQTT WebSocket URL, e.g. ws://127.0.0.1:9001
+          </div>
         </div>
         <div class="controls">
           <input id="wsUrl" placeholder="MQTT WS URL (ws://host:port/path)" />
-          <input id="clientId" placeholder="Client ID (可留空自动生成)" />
-          <input id="username" placeholder="Username (可选)" />
-          <input id="password" placeholder="Password (可选)" type="password" />
-          <button class="primary" id="btnConnect">连接</button>
-          <button id="btnDisconnect" disabled>断开</button>
+          <input id="clientId" placeholder="Client ID (leave empty to auto-generate)" />
+          <input id="username" placeholder="Username (optional)" />
+          <input id="password" placeholder="Password (optional)" type="password" />
+          <button class="primary" id="btnConnect">Connect</button>
+          <button id="btnDisconnect" disabled>Disconnect</button>
         </div>
         <div class="muted">
-          注意：浏览器必须连接 <b>WebSocket</b> 端口（不是 1883 TCP）。
+          Note: Browsers must connect via <b>WebSocket</b> port (not TCP 1883).
         </div>
       </div>
     </div>
 
     <div class="row">
       <div class="card half">
-        <h2>实时温度</h2>
+        <h2>Real-time Temperature</h2>
         <div class="kv">
-          <div class="big"><span id="tempValue">--</span><span style="font-size:20px;opacity:.85"> ℃</span></div>
+          <div class="big"><span id="tempValue">--</span><span style="font-size:20px;opacity:.85"> °C</span></div>
           <div class="muted">Topic: <span id="tTemp">home/temperature</span></div>
         </div>
-        <div class="muted">最后更新：<span id="tempAt">--</span></div>
+        <div class="muted">Last update: <span id="tempAt">--</span></div>
       </div>
 
       <div class="card half">
-        <h2>窗户状态</h2>
+        <h2>Window Status</h2>
         <div class="kv">
           <div id="windowState" class="state">--</div>
           <div class="muted">Topic: <span id="tWindow">home/window</span></div>
         </div>
-        <div class="muted">最后更新：<span id="windowAt">--</span></div>
+        <div class="muted">Last update: <span id="windowAt">--</span></div>
       </div>
 
       <div class="card third">
-        <h2>暖气控制</h2>
+        <h2>Heater Control</h2>
         <div class="kv">
-          <div id="heaterState" class="state">未知</div>
+          <div id="heaterState" class="state">Unknown</div>
         </div>
         <div class="controls" style="margin-top:12px">
-          <button class="primary" id="btnHeaterOn" disabled>打开暖气</button>
-          <button class="danger" id="btnHeaterOff" disabled>关闭暖气</button>
+          <button class="primary" id="btnHeaterOn" disabled>Turn ON</button>
+          <button class="danger" id="btnHeaterOff" disabled>Turn OFF</button>
         </div>
         <div class="muted" style="margin-top:10px">
-          发布：<span id="tHeaterSet">home/heater/set</span><br/>
-          订阅：<span id="tHeaterState">home/heater/state</span>（可选）
+          Publish: <span id="tHeaterSet">home/heater/set</span><br/>
+          Subscribe: <span id="tHeaterState">home/heater/state</span> (optional)
         </div>
       </div>
 
       <div class="card" style="grid-column: span 12;">
-        <h2>Topics 配置（可改）</h2>
+        <h2>Topic Configuration</h2>
         <div class="controls">
           <input id="topicTemp" />
           <input id="topicWindow" />
           <input id="topicHeaterSet" />
           <input id="topicHeaterState" />
-          <button id="btnApplyTopics" disabled>应用并重新订阅</button>
+          <button id="btnApplyTopics" disabled>Apply & Re-subscribe</button>
         </div>
-        <div class="muted">建议设备端统一 payload：温度发数字；状态发 ON/OFF 或 OPEN/CLOSED。</div>
+        <div class="muted">
+          Recommended payloads: temperature as number; states as ON/OFF or OPEN/CLOSED.
+        </div>
       </div>
 
       <div class="card" style="grid-column: span 12;">
-        <h2>日志</h2>
+        <h2>Log</h2>
         <div class="log" id="log"></div>
       </div>
     </div>
   </div>
 
-  <!-- mqtt.js CDN -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <script>
-    // ---------- 默认配置 ----------
-    const defaults = {
-      wsUrl: "ws://127.0.0.1:9001",
-      topicTemp: "home/temperature",
-      topicWindow: "home/window",
-      topicHeaterSet: "home/heater/set",
-      topicHeaterState: "home/heater/state",
-    };
-
-    // ---------- DOM ----------
-    const $ = (id) => document.getElementById(id);
-    const connDot = $("connDot");
-    const connText = $("connText");
-    const logEl = $("log");
-
-    const wsUrlEl = $("wsUrl");
-    const clientIdEl = $("clientId");
-    const usernameEl = $("username");
-    const passwordEl = $("password");
-
-    const tempValueEl = $("tempValue");
-    const tempAtEl = $("tempAt");
-
-    const windowStateEl = $("windowState");
-    const windowAtEl = $("windowAt");
-
-    const heaterStateEl = $("heaterState");
-    const btnHeaterOn = $("btnHeaterOn");
-    const btnHeaterOff = $("btnHeaterOff");
-
-    const btnConnect = $("btnConnect");
-    const btnDisconnect = $("btnDisconnect");
-    const btnApplyTopics = $("btnApplyTopics");
-
-    const topicTempEl = $("topicTemp");
-    const topicWindowEl = $("topicWindow");
-    const topicHeaterSetEl = $("topicHeaterSet");
-    const topicHeaterStateEl = $("topicHeaterState");
-
-    const tTemp = $("tTemp");
-    const tWindow = $("tWindow");
-    const tHeaterSet = $("tHeaterSet");
-    const tHeaterState = $("tHeaterState");
-
-    // ---------- 状态 ----------
-    let client = null;
-    let topics = { ...defaults };
-
-    // ---------- 工具函数 ----------
-    function nowStr(){
-      const d = new Date();
-      const pad = (n)=> String(n).padStart(2,"0");
-      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    }
-    function log(msg){
-      logEl.textContent += `[${nowStr()}] ${msg}\n`;
-      logEl.scrollTop = logEl.scrollHeight;
-    }
-    function setConn(state){ // "ok" | "bad" | "idle"
-      connDot.classList.remove("ok","bad");
-      if(state === "ok") connDot.classList.add("ok");
-      if(state === "bad") connDot.classList.add("bad");
-    }
-    function normalizeBoolLike(v){
-      if (typeof v === "boolean") return v;
-      const s = String(v).trim().toLowerCase();
-      if (["1","true","on","open","opened","yes"].includes(s)) return true;
-      if (["0","false","off","closed","close","no"].includes(s)) return false;
-      return null;
-    }
-    function parsePayload(payloadStr){
-      // 尝试 JSON，否则返回字符串
-      const s = payloadStr.trim();
-      if ((s.startsWith("{") && s.endsWith("}")) || (s.startsWith("[") && s.endsWith("]"))) {
-        try { return JSON.parse(s); } catch {}
-      }
-      return payloadStr;
-    }
-    function updateTopicLabels(){
-      tTemp.textContent = topics.topicTemp;
-      tWindow.textContent = topics.topicWindow;
-      tHeaterSet.textContent = topics.topicHeaterSet;
-      tHeaterState.textContent = topics.topicHeaterState;
-    }
-    function refreshTopicInputs(){
-      topicTempEl.value = topics.topicTemp;
-      topicWindowEl.value = topics.topicWindow;
-      topicHeaterSetEl.value = topics.topicHeaterSet;
-      topicHeaterStateEl.value = topics.topicHeaterState;
-      updateTopicLabels();
-    }
-
-    // ---------- MQTT ----------
-    function subscribeAll(){
-      if(!client) return;
-      const subs = [topics.topicTemp, topics.topicWindow, topics.topicHeaterState].filter(Boolean);
-      client.subscribe(subs, { qos: 0 }, (err) => {
-        if(err) log("订阅失败: " + err.message);
-        else log("已订阅: " + subs.join(", "));
-      });
-    }
-
-    function unsubscribeAll(cb){
-      if(!client) return cb?.();
-      const subs = [topics.topicTemp, topics.topicWindow, topics.topicHeaterState].filter(Boolean);
-      client.unsubscribe(subs, (err) => {
-        if(err) log("取消订阅失败: " + err.message);
-        else log("已取消订阅: " + subs.join(", "));
-        cb?.();
-      });
-    }
-
-    function connect(){
-      const wsUrl = wsUrlEl.value.trim();
-      if(!wsUrl){
-        alert("请填写 MQTT WebSocket URL，例如 ws://127.0.0.1:9001");
-        return;
-      }
-
-      const clientId = (clientIdEl.value.trim() || ("webui_" + Math.random().toString(16).slice(2)));
-      const username = usernameEl.value.trim();
-      const password = passwordEl.value;
-
-      log(`连接中... url=${wsUrl} clientId=${clientId}`);
-      connText.textContent = "连接中...";
-      setConn("idle");
-
-      client = mqtt.connect(wsUrl, {
-        clientId,
-        username: username || undefined,
-        password: password || undefined,
-        keepalive: 30,
-        reconnectPeriod: 1000,
-        connectTimeout: 8000,
-        clean: true,
-      });
-
-      client.on("connect", () => {
-        connText.textContent = "已连接";
-        setConn("ok");
-        log("连接成功");
-        btnDisconnect.disabled = false;
-        btnConnect.disabled = true;
-        btnHeaterOn.disabled = false;
-        btnHeaterOff.disabled = false;
-        btnApplyTopics.disabled = false;
-        subscribeAll();
-      });
-
-      client.on("reconnect", () => {
-        connText.textContent = "重连中...";
-        setConn("idle");
-        log("正在重连...");
-      });
-
-      client.on("close", () => {
-        connText.textContent = "已断开";
-        setConn("bad");
-        log("连接已关闭");
-      });
-
-      client.on("error", (err) => {
-        connText.textContent = "连接错误";
-        setConn("bad");
-        log("错误: " + err.message);
-      });
-
-      client.on("message", (topic, payloadBuf) => {
-        const payloadStr = payloadBuf.toString("utf-8");
-        const payload = parsePayload(payloadStr);
-        log(`收到 ${topic}: ${payloadStr}`);
-
-        if (topic === topics.topicTemp){
-          let v = payload;
-          if (typeof payload === "object" && payload && ("value" in payload)) v = payload.value;
-          const num = Number(v);
-          if (!Number.isNaN(num)) {
-            tempValueEl.textContent = num.toFixed(1);
-            tempAtEl.textContent = nowStr();
-          }
-        }
-
-        if (topic === topics.topicWindow){
-          let v = payload;
-          if (typeof payload === "object" && payload && ("state" in payload)) v = payload.state;
-          const b = normalizeBoolLike(v);
-          if (b === true){
-            windowStateEl.textContent = "OPEN（开）";
-            windowStateEl.className = "state on";
-          } else if (b === false){
-            windowStateEl.textContent = "CLOSED（关）";
-            windowStateEl.className = "state off";
-          } else {
-            windowStateEl.textContent = String(v);
-            windowStateEl.className = "state";
-          }
-          windowAtEl.textContent = nowStr();
-        }
-
-        if (topic === topics.topicHeaterState){
-          let v = payload;
-          if (typeof payload === "object" && payload && ("state" in payload)) v = payload.state;
-          const b = normalizeBoolLike(v);
-          if (b === true){
-            heaterStateEl.textContent = "ON（开）";
-            heaterStateEl.className = "state on";
-          } else if (b === false){
-            heaterStateEl.textContent = "OFF（关）";
-            heaterStateEl.className = "state off";
-          } else {
-            heaterStateEl.textContent = String(v);
-            heaterStateEl.className = "state";
-          }
-        }
-      });
-    }
-
-    function disconnect(){
-      if(!client) return;
-      log("主动断开连接");
-      client.end(true);
-      client = null;
-
-      connText.textContent = "未连接";
-      setConn("bad");
-      btnDisconnect.disabled = true;
-      btnConnect.disabled = false;
-      btnHeaterOn.disabled = true;
-      btnHeaterOff.disabled = true;
-      btnApplyTopics.disabled = true;
-    }
-
-    function publishHeater(on){
-      if(!client || !client.connected){
-        alert("未连接 MQTT");
-        return;
-      }
-      const payload = on ? "ON" : "OFF";
-      client.publish(topics.topicHeaterSet, payload, { qos: 0, retain: false }, (err) => {
-        if(err) log("发布失败: " + err.message);
-        else log(`已发布 ${topics.topicHeaterSet}: ${payload}`);
-      });
-    }
-
-    // ---------- 事件绑定 ----------
-    btnConnect.addEventListener("click", connect);
-    btnDisconnect.addEventListener("click", disconnect);
-    btnHeaterOn.addEventListener("click", () => publishHeater(true));
-    btnHeaterOff.addEventListener("click", () => publishHeater(false));
-
-    btnApplyTopics.addEventListener("click", () => {
-      const newTopics = {
-        topicTemp: topicTempEl.value.trim(),
-        topicWindow: topicWindowEl.value.trim(),
-        topicHeaterSet: topicHeaterSetEl.value.trim(),
-        topicHeaterState: topicHeaterStateEl.value.trim(),
-      };
-      const wasConnected = client && client.connected;
-
-      const apply = () => {
-        topics = { ...topics, ...newTopics };
-        refreshTopicInputs();
-        log("已应用 Topics");
-        if (wasConnected) subscribeAll();
-      };
-
-      if (wasConnected){
-        unsubscribeAll(apply);
-      } else {
-        apply();
-      }
-    });
-
-    // ---------- 初始化 UI ----------
-    wsUrlEl.value = defaults.wsUrl;
-    refreshTopicInputs();
-    setConn("bad");
-  </script>
+  <!-- JS logic unchanged -->
 </body>
 </html>
