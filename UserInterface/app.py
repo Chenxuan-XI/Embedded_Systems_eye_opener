@@ -8,9 +8,12 @@ app = Flask(__name__)
 # ======================
 # MQTT 配置
 # ======================
-MQTT_BROKER = "127.0.0.1"
+MQTT_BROKER = "10.202.92.35"
 MQTT_PORT = 1883
 
+TOPIC_TEMPERATURE = "home/temp"
+TOPIC_HUMIDITY = "home/humidity"
+TOPIC_WINDOW = "home/window"
 TOPIC_HEATER_SET = "home/heater/set"
 
 # ======================

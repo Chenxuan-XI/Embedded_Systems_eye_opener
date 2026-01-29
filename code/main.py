@@ -1,5 +1,15 @@
 import time
 from smbus2 import SMBus, i2c_msg
+import paho.mqtt.client as mqtt
+import json
+
+# MQTT def
+client = mqtt.Client()
+Broker = "d139a4925004f95b4bd03154d52c5b1.s1.eu.hivemq.cloud"
+PORT = 8883
+client.connect(Broker, PORT, 60)
+client.username_pw_set("tfboys","Abc12345")
+TOPIC = "cx/iotbox01/sensors"
 
 bus = SMBus(1)
 
@@ -70,12 +80,18 @@ while True:
         temperature = read_si7021_temperature()
         humidity = read_si7021_humidity()
 
-        print(f"ADC raw: {adc_value}")
-        print(f"Temperature: {temperature:.2f} °C")
-        print(f"Humidity: {humidity:.2f} %RH")
-        print("-" * 30)
+        payload = {
+            "timestamp": int(time.time()),
+            "window": adc_value,
+            "temperature": temperature,
+            "humidity": humidity, 
+        }
 
-        time.sleep(0.5)
+        # MSG_INFO = client.publish("IC.embedded/GroupJay",adc_value)
+        # mqtt.error_string(MSG_INFO.rc)
+        client.publish(TOPIC, json.dumps(payload))
+        print("Published:", payload)
+        time.sleep(2)
 
     except Exception as e:
         print("Error:", e)
