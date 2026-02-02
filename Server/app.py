@@ -50,10 +50,10 @@ def on_message(client, userdata, msg):
 
         if window > 300:
             client.publish(TOPIC_heater, "OFF")
-            print("Window > 300 → Heater OFF")
+            print("Heater OFF")
         else:
             client.publish(TOPIC_heater, "ON")
-            print("Window ≤ 300 → Heater ON")
+            print("Heater ON")
 
     
 
