@@ -23,7 +23,8 @@ def on_message(client, userdata, msg):
         moving_average[5-i-1] = moving_average[5-i-2]
         print(moving_average[5-i-1])
     moving_average[0] = float(msg.payload.decode())
-    print("Moving Average", sum(moving_average)/len(moving_average))
+    avg_window = sum(moving_average)/len(moving_average)
+    print("Moving Average", avg_window)
 
 
 def mqtt_loop():

@@ -7,14 +7,14 @@
 
   <style>
     :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-    body { margin: 0; background: #0b1220; color: #e6edf3; }
+    body { margin: 0; background: #0b1220; color: #e6edf3; overflow-x:hidden; }
     .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
     .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
 
     .card {
       grid-column: span 12;
       background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.10);
+      border: 1px solid rgba(121, 76, 76, 0.1);
       border-radius: 14px;
       padding: 16px;
     }
@@ -43,7 +43,7 @@
     .dot.ok { background:#22c55e; }
     .dot.bad { background:#ef4444; }
 
-    input, button {
+    input, button, select {
       background: rgba(255,255,255,0.06);
       color:#e6edf3;
       border:1px solid rgba(255,255,255,0.16);
@@ -63,10 +63,155 @@
       overflow:auto;
       font-size:12px;
     }
+
+    /* simple switch */
+    .switchRow { display:flex; align-items:center; gap:12px; margin-top:10px; }
+    .switch { position: relative; display: inline-block; width: 54px; height: 32px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: rgba(255,255,255,0.16);
+      border: 1px solid rgba(255,255,255,0.18);
+      transition: .2s;
+      border-radius: 999px;
+    }
+    .slider:before {
+      position: absolute; content: "";
+      height: 24px; width: 24px; left: 4px; top: 3px;
+      background: #e6edf3;
+      transition: .2s;
+      border-radius: 50%;
+      opacity: .95;
+    }
+    input:checked + .slider { background: rgba(34,197,94,0.20); }
+    input:checked + .slider:before { transform: translateX(22px); }
+
+    /* ===== Sidebar (drawer) ===== */
+    .drawerBtn{
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 50;
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.14);
+      backdrop-filter: blur(10px);
+    }
+    .drawerOverlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      opacity: 0;
+      pointer-events: none;
+      transition: .2s;
+      z-index: 40;
+    }
+    .drawer{
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: min(360px, 88vw);
+      background: rgba(10, 16, 30, 0.92);
+      border-right: 1px solid rgba(255,255,255,0.10);
+      transform: translateX(-105%);
+      transition: .22s;
+      z-index: 45;
+      padding: 16px;
+      box-sizing: border-box;
+      backdrop-filter: blur(10px);
+    }
+    body.drawerOpen .drawer{ transform: translateX(0); }
+    body.drawerOpen .drawerOverlay{
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .drawerHeader{
+      display:flex;
+      align-items:center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .drawerTitle{ font-weight: 800; letter-spacing: .2px; }
+    .drawerCard{
+      margin-top: 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 12px;
+    }
+    .drawerRow{
+      display:flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .segRow{
+      display:flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .segBtn{
+      border-radius: 999px;
+      padding: 8px 10px;
+      font-size: 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+    }
+    .segBtn.active{
+      background: rgba(59,130,246,0.22);
+      border-color: rgba(59,130,246,0.4);
+    }
+    .hint{ font-size: 12px; opacity: .7; line-height: 1.35; }
   </style>
 </head>
 
 <body>
+
+<!-- Sidebar toggle button -->
+<button class="drawerBtn" id="btnDrawer" title="Open settings">☰</button>
+
+<!-- Overlay -->
+<div class="drawerOverlay" id="drawerOverlay"></div>
+
+<!-- Drawer -->
+<aside class="drawer" aria-label="Settings" id="drawer">
+  <div class="drawerHeader">
+    <div class="drawerTitle">Automation Settings</div>
+    <button id="btnCloseDrawer" title="Close">✕</button>
+  </div>
+
+  <div class="drawerCard">
+    <div class="hint">
+      These settings change server logic. Controls here send requests to <b>app.py</b>, and the server publishes MQTT.
+    </div>
+
+    <div class="drawerRow">
+      <div><b>Turn OFF heater when window is open</b></div>
+      <div class="segRow" id="segOffWhenOpen"></div>
+      <div class="hint">Automatic: server forces OFF. Alert: server warns only. Off: ignore.</div>
+    </div>
+
+    <div class="drawerRow">
+      <div><b>Turn ON heater when window is shut</b></div>
+      <div class="segRow" id="segOnWhenShut"></div>
+      <div class="hint">Automatic: server forces ON. Alert: server warns only. Off: ignore.</div>
+    </div>
+
+    <div class="drawerRow">
+      <div><b>Open-window health alert</b></div>
+      <div class="segRow" id="segHealthAlert"></div>
+      <div class="hint">If ON, server can push phone notifications when temp/humidity are unhealthy.</div>
+    </div>
+  </div>
+
+  <div class="drawerCard">
+    <div class="hint" id="settingsStatus">Loading settings…</div>
+  </div>
+</aside>
+
 <div class="wrap">
 
   <!-- Connection -->
@@ -85,7 +230,7 @@
     </div>
 
     <div class="muted" style="margin-top:6px">
-      Subscribed topic: <b>cx/iotbox01/sensors</b>
+      Subscribed topics: <b>cx/iotbox01/sensors</b>, <b>cx/iotbox01/heater</b>
     </div>
   </div>
 
@@ -116,9 +261,20 @@
       <div class="muted">Updated: <span id="winAt">--</span></div>
     </div>
 
+    <!-- Heater Control -->
     <div class="card third">
-      <h2>System Recommendation</h2>
-      <div class="big" id="heaterAdvice">--</div>
+      <h2>Heater</h2>
+      <div class="big" id="heaterStateText">--</div>
+      <div class="switchRow">
+        <label class="switch" title="Toggle heater ON/OFF (via server)">
+          <input id="heaterToggle" type="checkbox" disabled>
+          <span class="slider"></span>
+        </label>
+        <div class="muted">Updated: <span id="heaterAt">--</span></div>
+      </div>
+      <div class="muted" style="margin-top:8px">
+        This switch calls <b>/api/heater</b> (HTTP). Server publishes MQTT.
+      </div>
     </div>
 
     <div class="card">
@@ -129,12 +285,11 @@
   </div>
 </div>
 
-
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
-  // ===== Fixed MQTT Topic =====
-  const TOPIC = "cx/iotbox01/sensors";
-  const TOPIC_heater = "cx/iotbox01/heater"
+  // ===== Fixed MQTT Topics (telemetry only) =====
+  const TOPIC_SENSORS = "cx/iotbox01/sensors";
+  const TOPIC_HEATER  = "cx/iotbox01/heater";
 
   const connDot = document.getElementById("connDot");
   const connText = document.getElementById("connText");
@@ -142,22 +297,32 @@
   const tempValue = document.getElementById("tempValue");
   const humValue  = document.getElementById("humValue");
   const winValue  = document.getElementById("winValue");
-  const heaterAdvice = document.getElementById("heaterAdvice");
+
+  const heaterStateText = document.getElementById("heaterStateText");
+  const heaterToggle = document.getElementById("heaterToggle");
 
   const tempAt = document.getElementById("tempAt");
   const humAt  = document.getElementById("humAt");
   const winAt  = document.getElementById("winAt");
+  const heaterAt = document.getElementById("heaterAt");
 
   const logEl = document.getElementById("log");
-
   const btnConnect = document.getElementById("btnConnect");
   const btnDisconnect = document.getElementById("btnDisconnect");
 
-  const HEATER_ON = true;
+  // Drawer elements
+  const btnDrawer = document.getElementById("btnDrawer");
+  const btnCloseDrawer = document.getElementById("btnCloseDrawer");
+  const drawerOverlay = document.getElementById("drawerOverlay");
+  const settingsStatus = document.getElementById("settingsStatus");
+
+  const segOffWhenOpen = document.getElementById("segOffWhenOpen");
+  const segOnWhenShut  = document.getElementById("segOnWhenShut");
+  const segHealthAlert = document.getElementById("segHealthAlert");
 
   let client = null;
 
-  // Remember last heater command to avoid spamming MQTT
+  // remember last heater state shown (from server OR mqtt)
   let lastHeaterCmd = null;
 
   function now(){ return new Date().toLocaleTimeString(); }
@@ -177,73 +342,261 @@
     return Number.isFinite(n) ? n : null;
   }
 
-  function publishHeater(command){
-    if (!client) return;
-
-    // Only publish if changed
-    if (command === lastHeaterCmd) return;
-
-    lastHeaterCmd = command;
-    const payload = JSON.stringify({ command });
-
-    client.publish(TOPIC_HEATER, payload);
-    log(`→ publish ${TOPIC_HEATER} ${payload}`);
+  function normalizeHeaterCmd(x){
+    if (typeof x !== "string") return null;
+    const v = x.trim().toUpperCase();
+    return (v === "ON" || v === "OFF") ? v : null;
   }
 
+  function setHeaterUI(cmd){
+    if (cmd === "ON") {
+      heaterStateText.textContent = "ON";
+      heaterToggle.checked = true;
+    } else if (cmd === "OFF") {
+      heaterStateText.textContent = "OFF";
+      heaterToggle.checked = false;
+    } else {
+      heaterStateText.textContent = "--";
+      heaterToggle.checked = false;
+    }
+    heaterAt.textContent = now();
+  }
+
+  // ====== NEW: HTTP -> server publishes MQTT ======
+  async function apiPost(path, body){
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
+    });
+    let data = null;
+    try { data = await res.json(); } catch(e) {}
+    if (!res.ok) {
+      const msg = data?.error || `HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  async function publishHeaterViaServer(command){
+    // Only send if changed
+    if (command === lastHeaterCmd) return;
+
+    // Optimistic UI update
+    lastHeaterCmd = command;
+    setHeaterUI(command);
+
+    try {
+      const data = await apiPost("/api/heater", { command });
+      log(`→ HTTP /api/heater ${JSON.stringify({command})} ✓ (server published MQTT)`);
+      // If server returns a canonical state, apply it
+      if (data?.state) {
+        lastHeaterCmd = data.state;
+        setHeaterUI(data.state);
+      }
+    } catch (e) {
+      log(`❌ HTTP /api/heater failed: ${e.message}`);
+      // revert unknown
+      lastHeaterCmd = null;
+    }
+  }
+
+  // ===== NEW: manual rule flip (no timers) =====
+  async function manualRuleFlip(cmd){
+    // If user turned heater ON manually -> disable rule that might turn it OFF
+    if (cmd === "ON") {
+      try {
+        await saveSettings({ off_when_window_open: "Off" });
+        // (Optional) ensure UI reflects immediately
+        seg1?.setActive("Off");
+        log("Manual heater ON → set off_when_window_open = Off");
+      } catch (e) {
+        log(`❌ Manual flip failed (off_when_window_open): ${e.message}`);
+      }
+    }
+
+    // If user turned heater OFF manually -> disable rule that might turn it ON
+    if (cmd === "OFF") {
+      try {
+        await saveSettings({ on_when_window_shut: "Off" });
+        seg2?.setActive("Off");
+        log("Manual heater OFF → set on_when_window_shut = Off");
+      } catch (e) {
+        log(`❌ Manual flip failed (on_when_window_shut): ${e.message}`);
+      }
+    }
+  }
+
+
+  heaterToggle.addEventListener("change", async () => {
+    const cmd = heaterToggle.checked ? "ON" : "OFF";
+
+    // NEW: flip the relevant rule switch to Off
+    await manualRuleFlip(cmd);
+
+    // Existing: send the manual heater command
+    publishHeaterViaServer(cmd);
+  });
+
+
+  function handleHeaterMessage(raw){
+    // Accept either raw "ON"/"OFF" OR JSON: { "command": "ON" }
+    let cmd = normalizeHeaterCmd(raw);
+
+    if (!cmd) {
+      try {
+        const obj = JSON.parse(raw);
+        cmd = normalizeHeaterCmd(obj?.command);
+      } catch (e) {}
+    }
+
+    if (!cmd) {
+      log(`⚠️ heater payload not understood: ${raw}`);
+      return;
+    }
+
+    lastHeaterCmd = cmd;
+    setHeaterUI(cmd);
+  }
+
+  // ===== Sidebar segmented controls =====
+  function makeSegment(parentEl, options, initialValue, onChange){
+    parentEl.innerHTML = "";
+    const buttons = new Map();
+
+    function setActive(val){
+      for (const [v, btn] of buttons.entries()){
+        btn.classList.toggle("active", v === val);
+      }
+    }
+
+    for (const opt of options){
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "segBtn";
+      btn.textContent = opt.label;
+      btn.onclick = () => {
+        setActive(opt.value);
+        onChange(opt.value);
+      };
+      buttons.set(opt.value, btn);
+      parentEl.appendChild(btn);
+    }
+
+    setActive(initialValue);
+    return { setActive };
+  }
+
+  const triOptions = [
+    { label: "Automatic", value: "Automatic" },
+    { label: "Alert", value: "Alert" },
+    { label: "Off", value: "Off" },
+  ];
+  const onOffOptions = [
+    { label: "ON", value: "ON" },
+    { label: "OFF", value: "OFF" },
+  ];
+
+  let seg1 = null, seg2 = null, seg3 = null;
+
+  async function loadSettings(){
+    settingsStatus.textContent = "Loading settings…";
+    try {
+      const res = await fetch("/api/settings");
+      const data = await res.json();
+
+      seg1 = makeSegment(segOffWhenOpen, triOptions, data.off_when_window_open, async (val) => {
+        await saveSettings({ off_when_window_open: val });
+      });
+
+      seg2 = makeSegment(segOnWhenShut, triOptions, data.on_when_window_shut, async (val) => {
+        await saveSettings({ on_when_window_shut: val });
+      });
+
+      seg3 = makeSegment(segHealthAlert, onOffOptions, data.open_window_health_alert, async (val) => {
+        await saveSettings({ open_window_health_alert: val });
+      });
+
+      settingsStatus.textContent = `Settings loaded at ${now()}`;
+    } catch (e) {
+      settingsStatus.textContent = `Failed to load settings: ${e.message || e}`;
+    }
+  }
+
+  async function saveSettings(patch){
+    settingsStatus.textContent = "Saving…";
+    try {
+      const data = await apiPost("/api/settings", patch);
+      settingsStatus.textContent = `Saved at ${now()}`;
+
+      // keep UI in sync if server canonicalizes
+      if (data?.settings){
+        seg1?.setActive(data.settings.off_when_window_open);
+        seg2?.setActive(data.settings.on_when_window_shut);
+        seg3?.setActive(data.settings.open_window_health_alert);
+      }
+
+      log(`→ HTTP /api/settings ${JSON.stringify(patch)} ✓`);
+    } catch (e) {
+      settingsStatus.textContent = `Save failed: ${e.message}`;
+      log(`❌ HTTP /api/settings failed: ${e.message}`);
+    }
+  }
+
+  // Drawer open/close
+  function openDrawer(){ document.body.classList.add("drawerOpen"); }
+  function closeDrawer(){ document.body.classList.remove("drawerOpen"); }
+  btnDrawer.onclick = openDrawer;
+  btnCloseDrawer.onclick = closeDrawer;
+  drawerOverlay.onclick = closeDrawer;
+
+  // ===== MQTT telemetry connection =====
   btnConnect.onclick = () => {
     const url = document.getElementById("wsUrl").value.trim() || "ws://10.215.255.119:9001";
 
     setConn(false, "Connecting...");
     log(`Connecting to ${url} ...`);
 
-    // Good practice: set a clientId
     client = mqtt.connect(url, { clientId: "web_" + Math.random().toString(16).slice(2) });
 
     client.on("connect", () => {
       setConn(true, "Connected");
       btnDisconnect.disabled = false;
+      heaterToggle.disabled = false;
 
-      client.subscribe(TOPIC, (err) => {
+      client.subscribe([TOPIC_SENSORS, TOPIC_HEATER], (err) => {
         if (err) log("❌ subscribe error: " + (err.message || err));
-        else log("✅ subscribed to " + TOPIC);
+        else log(`✅ subscribed to ${TOPIC_SENSORS} and ${TOPIC_HEATER}`);
       });
     });
 
     client.on("message", (topic, payload) => {
-      if (topic !== TOPIC) return;
-
       const raw = payload.toString();
       log(`← ${topic} ${raw}`);
 
-      try {
-        const data = JSON.parse(raw);
+      if (topic === TOPIC_SENSORS) {
+        try {
+          const data = JSON.parse(raw);
+          const t = safeNumber(data.temperature);
+          const h = safeNumber(data.humidity);
+          const w = safeNumber(data.window);
 
-        // Validate / parse numbers
-        const t = safeNumber(data.temperature);
-        const h = safeNumber(data.humidity);
-        const w = safeNumber(data.window);
+          tempValue.textContent = (t !== null) ? t.toFixed(1) : "--";
+          humValue.textContent  = (h !== null) ? h.toFixed(1) : "--";
 
-        // Update UI safely
-        if (t !== null) tempValue.textContent = t.toFixed(1);
-        else tempValue.textContent = "--";
+          if (w !== null) winValue.textContent = w.toFixed(0);
+          else winValue.textContent = String(data.window ?? "--");
 
-        if (h !== null) humValue.textContent = h.toFixed(1);
-        else humValue.textContent = "--";
-
-        if (w !== null) winValue.textContent = w.toFixed(0);
-        else winValue.textContent = String(data.window ?? "--");
-
-        tempAt.textContent = humAt.textContent = winAt.textContent = now();
-
-        // Simple decision logic (example)
-        if (data.window > 500 && HEATER_ON) {
-          heaterAdvice.textContent = "Turn OFF heater";
-        }else{
-          heaterAdvice.textContent = "Turn ON heater";
+          tempAt.textContent = humAt.textContent = winAt.textContent = now();
+        } catch(e){
+          log("❌ JSON parse error: " + e.message);
         }
+        return;
+      }
 
-      } catch(e){
-        log("❌ JSON parse error: " + e.message);
+      if (topic === TOPIC_HEATER) {
+        handleHeaterMessage(raw);
+        return;
       }
     });
 
@@ -252,8 +605,10 @@
     client.on("close", () => {
       setConn(false, "Disconnected");
       btnDisconnect.disabled = true;
+      heaterToggle.disabled = true;
       log("Disconnected");
       lastHeaterCmd = null;
+      setHeaterUI(null);
     });
 
     client.on("error", (e) => {
@@ -270,4 +625,7 @@
   };
 
   setConn(false, "Disconnected");
+  loadSettings();
 </script>
+</body>
+</html>
