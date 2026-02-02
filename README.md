@@ -64,15 +64,6 @@ User Recommendations / Motor Control
 
 ## Hardware & sensors
 
-好，继续 **`Hardware & sensors`**。
-这一节我们目标很明确：**稳、清楚、对齐 spec，一看就是“我真的连过线、跑过 I²C”**。
-
-下面是一版**可以直接粘进 README 的成稿**👇
-
----
-
-## Hardware & sensors
-
 ### Hardware platform
 
 The embedded sensor node is implemented on a **Raspberry Pi** running Linux and Python.
