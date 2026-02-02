@@ -133,6 +133,15 @@
 <script>
   // ===== Fixed MQTT Topic =====
   const TOPIC = "cx/iotbox01/sensors";
+  const TOPIC_HEATER = "cx/iotbox01/heater";
+
+
+  let advice = "";
+
+  const WINDOW_OPEN = data.window >= 300;
+  const TOO_COLD = data.temperature < 18;
+  const TOO_DRY = data.humidity < 30;
+  const TOO_HUMID = data.humidity > 60;
 
   const connDot = document.getElementById("connDot");
   const connText = document.getElementById("connText");
@@ -150,6 +159,8 @@
 
   const btnConnect = document.getElementById("btnConnect");
   const btnDisconnect = document.getElementById("btnDisconnect");
+  
+  
 
   let client = null;
 
@@ -190,11 +201,25 @@
         tempAt.textContent = humAt.textContent = winAt.textContent = now();
 
         // Simple decision logic (example)
-        if (data.window > 500) {
-          heaterAdvice.textContent = "Turn OFF heater";
-        }else{
-          heaterAdvice.textContent = "Turn ON heater";
+        if (WINDOW_OPEN) {
+          advice = "Window open – heating disabled";
+          client.publish(TOPIC_HEATER, JSON.stringify({ command: "OFF" }));
         }
+        else if (TOO_COLD && !TOO_DRY) {
+          advice = "Turn ON heater";
+          client.publish(TOPIC_HEATER, JSON.stringify({ command: "ON" }));
+        }
+        else if (TOO_COLD && TOO_DRY) {
+          advice = "Air too dry – heating not recommended";
+          client.publish(TOPIC_HEATER, JSON.stringify({ command: "OFF" }));
+        }
+        else {
+          advice = "Heating not required";
+          client.publish(TOPIC_HEATER, JSON.stringify({ command: "OFF" }));
+        }
+
+        heaterAdvice.textContent = advice;
+
         
       } catch(e){
         log("JSON parse error");
