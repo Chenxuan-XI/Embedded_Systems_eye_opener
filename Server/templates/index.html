@@ -192,11 +192,10 @@
         // Simple decision logic (example)
         if (data.window > 500) {
           heaterAdvice.textContent = "Turn OFF heater";
+        }else{
+          heaterAdvice.textContent = "Turn ON heater";
         }
-        // else {
-        //   heaterAdvice.textContent = "Turn OFF heater";
-        // }
-
+        
       } catch(e){
         log("JSON parse error");
       }
