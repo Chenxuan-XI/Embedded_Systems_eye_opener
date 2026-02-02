@@ -19,14 +19,6 @@ This embedded-system product is desgined to be **scalable and extensible**, supp
 ---
 
 ## System overview
-好，直接进入 **`System overview`**。
-这一节的目标只有一个：**让助教 10 秒内看懂你的系统怎么跑起来的**（而且自动对你“工程结构 + 可扩展性”加分）。
-
-我先给你一版**可直接放进 README 的成稿**，然后再解释为什么这样写。
-
----
-
-## System overview
 
 The system consists of three main layers: an embedded sensor node, a communication layer, and a client-side processing and user interface layer.
 
