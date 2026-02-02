@@ -138,7 +138,7 @@
 
   let advice = "";
 
-  const WINDOW_OPEN = data.window >= 300;
+  const WINDOW_OPEN = data.window > 300;
   const TOO_COLD = data.temperature < 18;
   const TOO_DRY = data.humidity < 30;
   const TOO_HUMID = data.humidity > 60;
