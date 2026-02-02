@@ -190,11 +190,12 @@
         tempAt.textContent = humAt.textContent = winAt.textContent = now();
 
         // Simple decision logic (example)
-        if (data.window > 500 && data.temperature < 18) {
-          heaterAdvice.textContent = "Turn ON heater";
-        } else {
+        if (data.window > 500) {
           heaterAdvice.textContent = "Turn OFF heater";
         }
+        // else {
+        //   heaterAdvice.textContent = "Turn OFF heater";
+        // }
 
       } catch(e){
         log("JSON parse error");
