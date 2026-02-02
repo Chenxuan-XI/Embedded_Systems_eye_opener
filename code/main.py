@@ -5,10 +5,10 @@ import json
 
 # MQTT def
 client = mqtt.Client()
-Broker = "d139a4925004f95b4bd03154d52c5b1.s1.eu.hivemq.cloud"
-PORT = 8883
+Broker = "10.215.255.119"
+PORT = 1883
 client.connect(Broker, PORT, 60)
-client.username_pw_set("tfboys","Abc12345")
+# client.username_pw_set("tfboys","Abc12345")
 TOPIC = "cx/iotbox01/sensors"
 
 bus = SMBus(1)
