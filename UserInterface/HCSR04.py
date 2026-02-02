@@ -1,9 +1,10 @@
 import paho.mqtt.client as mqtt
+import pigpio
 import threading
 import gpiod
 import time
 
-BROKER_IP = "10.202.92.35"
+BROKER_IP = "10.215.255.119"
 MQTT_PORT = 1883
 
 TOPIC_TEMPERATURE = "home/temp"
@@ -11,10 +12,24 @@ TOPIC_HUMIDITY = "home/humidity"
 TOPIC_WINDOW = "home/window"
 TOPIC_HEATER_SET = "home/heater/set"
 
+heater_on = True
+moving_average = [0,0,0,0,0]
+
+
 client = mqtt.Client()
+def on_message(client, userdata, msg):
+    print(f"Received: {msg.payload.decode()}")
+    for i in range(len(moving_average)-1):
+        moving_average[5-i-1] = moving_average[5-i-2]
+        print(moving_average[5-i-1])
+    moving_average[0] = float(msg.payload.decode())
+    print("Moving Average", sum(moving_average)/len(moving_average))
+
 
 def mqtt_loop():
     client.connect(BROKER_IP, MQTT_PORT, 60)
+    client.subscribe(TOPIC_WINDOW)
+    client.on_message = on_message
     client.loop_forever()
 
 threading.Thread(target=mqtt_loop, daemon=True).start()
@@ -61,6 +76,9 @@ while True:
     else:
         print("Out of range")
     time.sleep(2)
+
+
+
 
 
 
