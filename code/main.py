@@ -2,21 +2,7 @@ import time
 from smbus2 import SMBus, i2c_msg
 import paho.mqtt.client as mqtt
 import json
-import pigpio
 import threading
-
-pi = pigpio.pi()          # connects to local pigpiod
-GPIO = 18                 # servo signal wire here
-
-pi.set_mode(GPIO, pigpio.OUTPUT)
-
-# SG90 typical range: 500–2500 us (some prefer 600–2400)
-for pw in (500, 1500, 2500, 1500):
-    pi.set_servo_pulsewidth(GPIO, pw)
-    time.sleep(1)
-
-pi.set_servo_pulsewidth(GPIO, 0)   # stop pulses
-pi.stop()
 
 # MQTT def
 client = mqtt.Client()
@@ -27,17 +13,10 @@ TOPIC = "cx/iotbox01/sensors"
 TOPIC_heater = "cx/iotbox01/heater"
 
 def on_message(client, userdata, msg):
-    if(msg.topic == TOPIC_heater):
-        print(msg.payload)
-        if(msg.payload == "ON"):
-            pi.set_servo_pulsewidth(GPIO, 500)
-        elif(msg.payload == "OFF"):
-            pi.set_servo_pulsewidth(GPIO, 1500)
-    
     print(f"Received: {msg.payload.decode()}")
 
 def mqtt_loop():
-    client.connect(client, Broker, 60)
+    client.connect(Broker, PORT, 60)
     client.subscribe(TOPIC_heater)
     client.on_message = on_message
     client.loop_forever()
@@ -124,7 +103,7 @@ while True:
         # mqtt.error_string(MSG_INFO.rc)
         client.publish(TOPIC, json.dumps(payload))
         print("Published:", payload)
-        time.sleep(2)
+        time.sleep(1)
 
     except Exception as e:
         print("Error:", e)
