@@ -22,12 +22,12 @@ BROKER_IP = "10.215.255.119"
 TOPIC = "cx/iotbox01/heater"
 
 def on_message(client, userdata, msg):
-    cmd = json.parse(msg.payload.decode())
+    cmd = json.loads(msg.payload.decode())
     print(f"Received: {cmd}")
-    if cmd.command == "ON":
+    if cmd["command"] == "ON":
         pi.set_servo_pulsewidth(GPIO, SERVO_ON_POS)
-    elif cmd.command == "OFF":
-        pi.set_servo_pulsewidth(GPIO, SERVO_ON_POS)
+    elif cmd["command"] == "OFF":
+        pi.set_servo_pulsewidth(GPIO, SERVO_OFF_POS)
     
 
 client = mqtt.Client()
