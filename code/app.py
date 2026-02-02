@@ -27,7 +27,6 @@ TOPIC_HEATER = "cx/iotbox01/heater"
 # Control thresholds / tuning
 # ======================
 WINDOW_OPEN_THRESHOLD = 500.0
-MOVING_AVG_LEN = 5
 
 # "bad for my health" thresholds (adjust to your needs)
 TEMP_BAD_LOW = 16.0
@@ -58,6 +57,37 @@ def load_recent(minutes=30, db_file=None):
     rows = cur.fetchall()
     conn.close()
     return rows
+
+
+def load_recent_window_values(limit=10, db_file=None):
+    db_file = db_file or DB_FILE
+    conn = sqlite3.connect(db_file)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT window FROM sensor_log ORDER BY time DESC LIMIT ?",
+        (limit,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    values = []
+    for (win,) in rows:
+        try:
+            if win is not None:
+                values.append(float(win))
+        except (TypeError, ValueError):
+            continue
+    return values
+
+
+def trimmed_mean(values):
+    if not values:
+        return None
+    if len(values) < 3:
+        return sum(values) / len(values)
+    vals = sorted(values)
+    core = vals[1:-1]
+    return sum(core) / len(core)
 
 
 def compute_thresholds(rows):
@@ -112,8 +142,6 @@ settings = {
     # two-state: "ON" | "OFF"
     "open_window_health_alert": "OFF",
 }
-
-moving_average = [0.0] * MOVING_AVG_LEN
 
 last_published_heater = None  # "ON"/"OFF"
 last_health_alert_ts = 0.0
@@ -264,10 +292,11 @@ def on_message(client, userdata, msg):
         print("No valid window value in payload")
         return
 
-    # update moving average
-    global moving_average
-    moving_average = [window_val] + moving_average[:-1]
-    avg_window = sum(moving_average) / len(moving_average)
+    # window average from DB: last 10 values, drop min/max
+    values = load_recent_window_values(limit=10)
+    avg_window = trimmed_mean(values)
+    if avg_window is None:
+        avg_window = window_val
 
     window_is_open = avg_window > WINDOW_OPEN_THRESHOLD
     print("Moving Average window:", avg_window, "window_is_open:", window_is_open)
