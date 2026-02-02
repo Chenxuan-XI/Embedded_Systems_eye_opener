@@ -87,7 +87,60 @@ The system uses multiple sensors to capture different aspects of the indoor envi
 * Communication is performed using **explicit register-level read/write operations**.
 * Sensor data is converted from raw readings into physical units (e.g. °C, %RH) before transmission.
 
+---
+
 ## Data pipeline (MQTT + JSON)
+
+### MQTT architecture
+
+* The Raspberry Pi sensor node acts as an **MQTT publisher**.
+* Client applications and the web interface act as **MQTT subscribers**.
+* An MQTT broker decouples data producers from consumers, enabling scalable and flexible system expansion.
+
+This publish–subscribe model allows multiple clients to receive the same sensor data stream without modifying the embedded device.
+
+### Topic structure
+
+Sensor data is published to a dedicated topic, for example:
+
+```
+home/room1/sensors
+```
+
+This topic hierarchy is designed to support:
+
+* multiple rooms or sensor nodes,
+* future user or building-level extensions,
+* simple filtering and subscription by clients.
+
+### Data format
+
+Sensor data is packaged into a single JSON message containing all relevant measurements from one sampling cycle.
+
+Example payload:
+
+```json
+{
+  "timestamp": "2026-02-01T18:32:10",
+  "temperature": 21.4,
+  "humidity": 46.2,
+  "window_distance": 128,
+  "window_state": "open"
+}
+```
+
+### Data rate and reliability
+
+Sensor data is published at a fixed interval (2s) chosen to match the dynamics of indoor environments.
+MQTT’s lightweight design ensures:
+
+* low network overhead,
+* reliable delivery within a local network,
+* tolerance to temporary client disconnections.
+
+The system architecture allows new subscribers to join at any time and immediately begin receiving live data.
+
+---
 
 ## Decision / fusion logic
 
