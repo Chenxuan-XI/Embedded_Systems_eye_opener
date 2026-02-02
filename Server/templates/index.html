@@ -1,3 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>IoT Window & Heater Dashboard</title>
+
+  <style>
+    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    body { margin: 0; background: #0b1220; color: #e6edf3; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+    .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+
+    .card {
+      grid-column: span 12;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 16px;
+    }
+
+    @media (min-width: 760px){
+      .half { grid-column: span 6; }
+      .third { grid-column: span 4; }
+    }
+
+    h1 { margin: 0 0 10px; font-size: 18px; }
+    h2 { margin: 0 0 8px; font-size: 14px; opacity: .9; }
+    .muted { opacity: .7; font-size: 12px; }
+
+    .kv { display:flex; gap: 12px; align-items: baseline; }
+    .big { font-size: 40px; font-weight: 700; }
+
+    .pill {
+      display:inline-flex; align-items:center; gap:8px;
+      border-radius:999px; padding:6px 10px;
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.14);
+      font-size:12px;
+    }
+
+    .dot { width:10px; height:10px; border-radius:50%; background:#64748b; }
+    .dot.ok { background:#22c55e; }
+    .dot.bad { background:#ef4444; }
+
+    input, button {
+      background: rgba(255,255,255,0.06);
+      color:#e6edf3;
+      border:1px solid rgba(255,255,255,0.16);
+      border-radius:10px;
+      padding:10px 12px;
+    }
+    button { cursor:pointer; font-weight:600; }
+    button.primary { background:rgba(59,130,246,0.2); }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+
+    .log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas;
+      background: rgba(0,0,0,0.25);
+      border-radius:12px;
+      padding:10px;
+      height:160px;
+      overflow:auto;
+      font-size:12px;
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <!-- Connection -->
+  <div class="card">
+    <h1>MQTT IoT Dashboard</h1>
+
+    <div class="pill">
+      <span id="connDot" class="dot"></span>
+      <span id="connText">Disconnected</span>
+    </div>
+
+    <div style="margin-top:10px">
+      <input id="wsUrl" placeholder="ws://10.215.255.119:9001" style="min-width:280px">
+      <button class="primary" id="btnConnect">Connect</button>
+      <button id="btnDisconnect" disabled>Disconnect</button>
+    </div>
+
+    <div class="muted" style="margin-top:6px">
+      Subscribed topic: <b>cx/iotbox01/sensors</b>
+    </div>
+  </div>
+
+  <!-- Data -->
+  <div class="row">
+
+    <div class="card half">
+      <h2>Temperature</h2>
+      <div class="kv">
+        <div class="big"><span id="tempValue">--</span> °C</div>
+      </div>
+      <div class="muted">Updated: <span id="tempAt">--</span></div>
+    </div>
+
+    <div class="card half">
+      <h2>Humidity</h2>
+      <div class="kv">
+        <div class="big"><span id="humValue">--</span> %</div>
+      </div>
+      <div class="muted">Updated: <span id="humAt">--</span></div>
+    </div>
+
+    <div class="card half">
+      <h2>Window Distance</h2>
+      <div class="kv">
+        <div class="big"><span id="winValue">--</span></div>
+      </div>
+      <div class="muted">Updated: <span id="winAt">--</span></div>
+    </div>
+
+    <div class="card third">
+      <h2>System Recommendation</h2>
+      <div class="big" id="heaterAdvice">--</div>
+    </div>
+
+    <div class="card">
+      <h2>Log</h2>
+      <div class="log" id="log"></div>
+    </div>
+
+  </div>
+</div>
+
+
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
   // ===== Fixed MQTT Topic =====
@@ -109,9 +241,6 @@
         }else{
           heaterAdvice.textContent = "Turn ON heater";
         }
-
-        heaterAdvice.textContent = advice;
-        publishHeater(cmd);
 
       } catch(e){
         log("❌ JSON parse error: " + e.message);
