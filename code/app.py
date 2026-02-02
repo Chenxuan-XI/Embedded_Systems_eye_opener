@@ -71,7 +71,7 @@ def compute_thresholds(rows):
     return {
         "T_cold": round(temps.mean() - 1.0, 2),
         "H_dry": round(float(np.percentile(hums, 20)), 2),
-        "W_open": 600
+        "W_open": 20
     }
 
 
@@ -130,28 +130,6 @@ def _normalize_cmd(cmd) -> str | None:
     c = str(cmd).strip().upper()
     return c if c in ("ON", "OFF") else None
 
-
-def heater_decision(temp, hum, win, thresholds=None):
-    th = dict(DEFAULT_THRESHOLDS)
-    if thresholds:
-        th.update(thresholds)
-
-    if win is None:
-        return "OFF", "No window data"
-
-    if win >= th["W_open"]:
-        return "OFF", "Window open – heating disabled"
-
-    if temp is None or hum is None:
-        return "OFF", "Missing temperature/humidity data"
-
-    if temp < th["T_cold"] and hum >= th["H_dry"]:
-        return "ON", "Temperature below adaptive threshold"
-
-    if temp < th["T_cold"] and hum < th["H_dry"]:
-        return "OFF", "Air too dry – heating not recommended"
-
-    return "OFF", "Temperature comfortable"
 
 def publish_heater(cmd: str, reason: str = ""):
     """

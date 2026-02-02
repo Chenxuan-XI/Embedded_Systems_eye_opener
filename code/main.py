@@ -100,6 +100,9 @@ echo.request(consumer="hcsr04_echo", type=gpiod.LINE_REQ_DIR_IN)
 while True:
     try:
         distance_cm = read_distance_cm()
+        if distance_cm is None:
+            distance_cm = 1000
+        distance_cm = round(distance_cm,3)
         temperature = read_si7021_temperature()
         humidity = read_si7021_humidity()
 
