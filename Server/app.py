@@ -2,6 +2,7 @@ from flask import Flask, render_template, jsonify, request
 import paho.mqtt.client as mqtt
 import threading
 import time
+import json
 
 app = Flask(__name__)
 
@@ -10,11 +11,8 @@ app = Flask(__name__)
 # ======================
 MQTT_BROKER = "10.215.255.119"
 MQTT_PORT = 1883
-
-TOPIC_TEMPERATURE = "home/temp"
-TOPIC_HUMIDITY = "home/humidity"
-TOPIC_WINDOW = "home/window"
-TOPIC_HEATER_SET = "home/heater/set"
+TOPIC_sensor = "cx/iotbox01/sensors"
+TOPIC_heater = "cx/iotbox01/heater"
 
 #GPIO Settings
 
@@ -27,12 +25,41 @@ ECHO = 24
 # ======================
 mqtt_client = mqtt.Client()
 
+import json
+
+import json
+
 def on_message(client, userdata, msg):
-    print(f"Received: {msg.payload.decode()}")
+    topic = msg.topic
+    payload = msg.payload.decode()
+
+    if topic == TOPIC_sensor:
+        print("Received Sensor Data:", payload)
+
+        try:
+            data = json.loads(payload)
+        except json.JSONDecodeError:
+            print("Invalid JSON")
+            return
+
+        window = data.get("window")
+
+        if window is None:
+            print("No window value in payload")
+            return
+
+        if window > 300:
+            client.publish(TOPIC_heater, "OFF")
+            print("Window > 300 → Heater OFF")
+        else:
+            client.publish(TOPIC_heater, "ON")
+            print("Window ≤ 300 → Heater ON")
+
+    
 
 def mqtt_loop():
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
-    mqtt_client.subscribe(TOPIC_WINDOW)
+    mqtt_client.subscribe(TOPIC_sensor)
     mqtt_client.on_message = on_message
     mqtt_client.loop_forever()
 
@@ -48,20 +75,22 @@ def index():
     return render_template("index.html")
 
 # （可选）给 HTML 用的 API
-@app.route("/api/heater", methods=["POST"])
-def set_heater():
-    data = request.json
-    state = data.get("state", "").upper()
+# @app.route("/api/heater", methods=["POST"])
+# def set_heater():
+#     data = request.json
+#     state = data.get("state", "").upper()
 
-    if state not in ["ON", "OFF"]:
-        return jsonify({"error": "state must be ON or OFF"}), 400
+#     if state not in ["ON", "OFF"]:
+#         return jsonify({"error": "state must be ON or OFF"}), 400
 
-    mqtt_client.publish(TOPIC_HEATER_SET, state)
-    return jsonify({"ok": True, "state": state})
+#     mqtt_client.publish(TOPIC_heater, state)
+#     return jsonify({"ok": True, "state": state})
 
 # ======================
 # 启动
 # ======================
+
+
 if __name__ == "__main__":
     app.run(
         host="0.0.0.0",  # 允许局域网 / 服务器访问

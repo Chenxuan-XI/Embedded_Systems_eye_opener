@@ -133,6 +133,7 @@
 <script>
   // ===== Fixed MQTT Topic =====
   const TOPIC = "cx/iotbox01/sensors";
+  const TOPIC_heater = "cx/iotbox01/heater"
 
   const connDot = document.getElementById("connDot");
   const connText = document.getElementById("connText");
@@ -150,6 +151,8 @@
 
   const btnConnect = document.getElementById("btnConnect");
   const btnDisconnect = document.getElementById("btnDisconnect");
+
+  const HEATER_ON = true;
 
   let client = null;
 
@@ -190,7 +193,7 @@
         tempAt.textContent = humAt.textContent = winAt.textContent = now();
 
         // Simple decision logic (example)
-        if (data.window > 500) {
+        if (data.window > 500 && HEATER_ON) {
           heaterAdvice.textContent = "Turn OFF heater";
         }else{
           heaterAdvice.textContent = "Turn ON heater";
