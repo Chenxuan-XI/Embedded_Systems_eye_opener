@@ -154,9 +154,5 @@ The system architecture allows new subscribers to join at any time and immediate
 - Marketing website:
 - Demo video:
 
-## Repository structure
-
 ## Future work (advanced features)
-
-## Contributors
 
