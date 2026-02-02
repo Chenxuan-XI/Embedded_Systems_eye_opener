@@ -293,7 +293,7 @@ def on_message(client, userdata, msg):
         return
 
     # window average from DB: last 10 values, drop min/max
-    values = load_recent_window_values(limit=10)
+    values = load_recent_window_values(limit=10, db_file="sensor.db")
     avg_window = trimmed_mean(values)
     if avg_window is None:
         avg_window = window_val
