@@ -2,15 +2,7 @@
 <script>
   // ===== Fixed MQTT Topic =====
   const TOPIC = "cx/iotbox01/sensors";
-  const TOPIC_HEATER = "cx/iotbox01/heater";
-
-
-  let advice = "";
-
-  const WINDOW_OPEN = data.window > 300;
-  const TOO_COLD = data.temperature < 18;
-  const TOO_DRY = data.humidity < 30;
-  const TOO_HUMID = data.humidity > 60;
+  const TOPIC_heater = "cx/iotbox01/heater"
 
   const connDot = document.getElementById("connDot");
   const connText = document.getElementById("connText");
@@ -28,6 +20,8 @@
 
   const btnConnect = document.getElementById("btnConnect");
   const btnDisconnect = document.getElementById("btnDisconnect");
+
+  const HEATER_ON = true;
 
   let client = null;
 
@@ -109,31 +103,11 @@
 
         tempAt.textContent = humAt.textContent = winAt.textContent = now();
 
-        // ===== Decision logic (MUST be inside here) =====
-        // Set your thresholds
-        const WINDOW_OPEN = (w !== null) ? (w >= 300) : false;
-        const TOO_COLD = (t !== null) ? (t < 18) : false;
-        const TOO_DRY = (h !== null) ? (h < 30) : false;
-        const TOO_HUMID = (h !== null) ? (h > 60) : false;
-
-        let advice = "—";
-        let cmd = "OFF";
-
-        if (WINDOW_OPEN) {
-          advice = "Window open – heating disabled";
-          cmd = "OFF";
-        } else if (TOO_COLD && TOO_DRY) {
-          advice = "Too cold but air too dry – heating OFF";
-          cmd = "OFF";
-        } else if (TOO_COLD && !TOO_DRY) {
-          advice = "Too cold – turn ON heater";
-          cmd = "ON";
-        } else if (TOO_HUMID) {
-          advice = "Too humid – heating not required";
-          cmd = "OFF";
-        } else {
-          advice = "Heating not required";
-          cmd = "OFF";
+        // Simple decision logic (example)
+        if (data.window > 500 && HEATER_ON) {
+          heaterAdvice.textContent = "Turn OFF heater";
+        }else{
+          heaterAdvice.textContent = "Turn ON heater";
         }
 
         heaterAdvice.textContent = advice;
