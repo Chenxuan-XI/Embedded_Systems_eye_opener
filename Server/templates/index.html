@@ -1,148 +1,10 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>IoT Window & Heater Dashboard</title>
-
-  <style>
-    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
-    body { margin: 0; background: #0b1220; color: #e6edf3; }
-    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
-    .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
-
-    .card {
-      grid-column: span 12;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 14px;
-      padding: 16px;
-    }
-
-    @media (min-width: 760px){
-      .half { grid-column: span 6; }
-      .third { grid-column: span 4; }
-    }
-
-    h1 { margin: 0 0 10px; font-size: 18px; }
-    h2 { margin: 0 0 8px; font-size: 14px; opacity: .9; }
-    .muted { opacity: .7; font-size: 12px; }
-
-    .kv { display:flex; gap: 12px; align-items: baseline; }
-    .big { font-size: 40px; font-weight: 700; }
-
-    .pill {
-      display:inline-flex; align-items:center; gap:8px;
-      border-radius:999px; padding:6px 10px;
-      background:rgba(255,255,255,0.06);
-      border:1px solid rgba(255,255,255,0.14);
-      font-size:12px;
-    }
-
-    .dot { width:10px; height:10px; border-radius:50%; background:#64748b; }
-    .dot.ok { background:#22c55e; }
-    .dot.bad { background:#ef4444; }
-
-    input, button {
-      background: rgba(255,255,255,0.06);
-      color:#e6edf3;
-      border:1px solid rgba(255,255,255,0.16);
-      border-radius:10px;
-      padding:10px 12px;
-    }
-    button { cursor:pointer; font-weight:600; }
-    button.primary { background:rgba(59,130,246,0.2); }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-
-    .log {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas;
-      background: rgba(0,0,0,0.25);
-      border-radius:12px;
-      padding:10px;
-      height:160px;
-      overflow:auto;
-      font-size:12px;
-    }
-  </style>
-</head>
-
-<body>
-<div class="wrap">
-
-  <!-- Connection -->
-  <div class="card">
-    <h1>MQTT IoT Dashboard</h1>
-
-    <div class="pill">
-      <span id="connDot" class="dot"></span>
-      <span id="connText">Disconnected</span>
-    </div>
-
-    <div style="margin-top:10px">
-      <input id="wsUrl" placeholder="ws://10.215.255.119:9001" style="min-width:280px">
-      <button class="primary" id="btnConnect">Connect</button>
-      <button id="btnDisconnect" disabled>Disconnect</button>
-    </div>
-
-    <div class="muted" style="margin-top:6px">
-      Subscribed topic: <b>cx/iotbox01/sensors</b>
-    </div>
-  </div>
-
-  <!-- Data -->
-  <div class="row">
-
-    <div class="card half">
-      <h2>Temperature</h2>
-      <div class="kv">
-        <div class="big"><span id="tempValue">--</span> °C</div>
-      </div>
-      <div class="muted">Updated: <span id="tempAt">--</span></div>
-    </div>
-
-    <div class="card half">
-      <h2>Humidity</h2>
-      <div class="kv">
-        <div class="big"><span id="humValue">--</span> %</div>
-      </div>
-      <div class="muted">Updated: <span id="humAt">--</span></div>
-    </div>
-
-    <div class="card half">
-      <h2>Window Distance</h2>
-      <div class="kv">
-        <div class="big"><span id="winValue">--</span></div>
-      </div>
-      <div class="muted">Updated: <span id="winAt">--</span></div>
-    </div>
-
-    <div class="card third">
-      <h2>System Recommendation</h2>
-      <div class="big" id="heaterAdvice">--</div>
-    </div>
-
-    <div class="card">
-      <h2>Log</h2>
-      <div class="log" id="log"></div>
-    </div>
-
-  </div>
-</div>
-
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
   // ===== Fixed MQTT Topic =====
   const TOPIC = "cx/iotbox01/sensors";
   const TOPIC_HEATER = "cx/iotbox01/heater";
 
-
-  let advice = "";
-
-  const WINDOW_OPEN = data.window >= 300;
-  const TOO_COLD = data.temperature < 18;
-  const TOO_DRY = data.humidity < 30;
-  const TOO_HUMID = data.humidity > 60;
-
+  // ===== UI elements =====
   const connDot = document.getElementById("connDot");
   const connText = document.getElementById("connText");
 
@@ -159,12 +21,14 @@
 
   const btnConnect = document.getElementById("btnConnect");
   const btnDisconnect = document.getElementById("btnDisconnect");
-  
-  
 
   let client = null;
 
+  // Remember last heater command to avoid spamming MQTT
+  let lastHeaterCmd = null;
+
   function now(){ return new Date().toLocaleTimeString(); }
+
   function log(msg){
     logEl.textContent += `[${now()}] ${msg}\n`;
     logEl.scrollTop = logEl.scrollHeight;
@@ -175,68 +39,125 @@
     connText.textContent = text;
   }
 
+  function safeNumber(x){
+    const n = Number(x);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function publishHeater(command){
+    if (!client) return;
+
+    // Only publish if changed
+    if (command === lastHeaterCmd) return;
+
+    lastHeaterCmd = command;
+    const payload = JSON.stringify({ command });
+
+    client.publish(TOPIC_HEATER, payload);
+    log(`→ publish ${TOPIC_HEATER} ${payload}`);
+  }
+
   btnConnect.onclick = () => {
-    const url = document.getElementById("wsUrl").value || "ws://10.215.255.119:9001";
+    const url = document.getElementById("wsUrl").value.trim() || "ws://10.215.255.119:9001";
 
     setConn(false, "Connecting...");
-    client = mqtt.connect(url);
+    log(`Connecting to ${url} ...`);
+
+    // Good practice: set a clientId
+    client = mqtt.connect(url, { clientId: "web_" + Math.random().toString(16).slice(2) });
 
     client.on("connect", () => {
       setConn(true, "Connected");
       btnDisconnect.disabled = false;
-      client.subscribe(TOPIC);
-      log("Subscribed to " + TOPIC);
+
+      client.subscribe(TOPIC, (err) => {
+        if (err) log("❌ subscribe error: " + (err.message || err));
+        else log("✅ subscribed to " + TOPIC);
+      });
     });
 
     client.on("message", (topic, payload) => {
       if (topic !== TOPIC) return;
 
-      try {
-        const data = JSON.parse(payload.toString());
+      const raw = payload.toString();
+      log(`← ${topic} ${raw}`);
 
-        tempValue.textContent = data.temperature.toFixed(1);
-        humValue.textContent  = data.humidity.toFixed(1);
-        winValue.textContent  = data.window;
+      try {
+        const data = JSON.parse(raw);
+
+        // Validate / parse numbers
+        const t = safeNumber(data.temperature);
+        const h = safeNumber(data.humidity);
+        const w = safeNumber(data.window);
+
+        // Update UI safely
+        if (t !== null) tempValue.textContent = t.toFixed(1);
+        else tempValue.textContent = "--";
+
+        if (h !== null) humValue.textContent = h.toFixed(1);
+        else humValue.textContent = "--";
+
+        if (w !== null) winValue.textContent = w.toFixed(0);
+        else winValue.textContent = String(data.window ?? "--");
 
         tempAt.textContent = humAt.textContent = winAt.textContent = now();
 
-        // Simple decision logic (example)
+        // ===== Decision logic (MUST be inside here) =====
+        // Set your thresholds
+        const WINDOW_OPEN = (w !== null) ? (w >= 300) : false;
+        const TOO_COLD = (t !== null) ? (t < 18) : false;
+        const TOO_DRY = (h !== null) ? (h < 30) : false;
+        const TOO_HUMID = (h !== null) ? (h > 60) : false;
+
+        let advice = "—";
+        let cmd = "OFF";
+
         if (WINDOW_OPEN) {
           advice = "Window open – heating disabled";
-          client.publish(TOPIC_HEATER, JSON.stringify({ command: "OFF" }));
-        }
-        else if (TOO_COLD && !TOO_DRY) {
-          advice = "Turn ON heater";
-          client.publish(TOPIC_HEATER, JSON.stringify({ command: "ON" }));
-        }
-        else if (TOO_COLD && TOO_DRY) {
-          advice = "Air too dry – heating not recommended";
-          client.publish(TOPIC_HEATER, JSON.stringify({ command: "OFF" }));
-        }
-        else {
+          cmd = "OFF";
+        } else if (TOO_COLD && TOO_DRY) {
+          advice = "Too cold but air too dry – heating OFF";
+          cmd = "OFF";
+        } else if (TOO_COLD && !TOO_DRY) {
+          advice = "Too cold – turn ON heater";
+          cmd = "ON";
+        } else if (TOO_HUMID) {
+          advice = "Too humid – heating not required";
+          cmd = "OFF";
+        } else {
           advice = "Heating not required";
-          client.publish(TOPIC_HEATER, JSON.stringify({ command: "OFF" }));
+          cmd = "OFF";
         }
 
         heaterAdvice.textContent = advice;
+        publishHeater(cmd);
 
-        
       } catch(e){
-        log("JSON parse error");
+        log("❌ JSON parse error: " + e.message);
       }
     });
+
+    client.on("reconnect", () => setConn(false, "Reconnecting..."));
 
     client.on("close", () => {
       setConn(false, "Disconnected");
       btnDisconnect.disabled = true;
+      log("Disconnected");
+      lastHeaterCmd = null;
+    });
+
+    client.on("error", (e) => {
+      log("❌ mqtt error: " + (e.message || e));
     });
   };
 
   btnDisconnect.onclick = () => {
-    if (client) client.end();
+    if (client) {
+      log("Disconnect requested");
+      client.end(true);
+      client = null;
+    }
   };
 
   setConn(false, "Disconnected");
 </script>
-</body>
-</html>
