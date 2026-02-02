@@ -11,6 +11,12 @@ TOPIC_IN  = "cx/iotbox01/sensors"
 TOPIC_OUT = "cx/iotbox01/recommendation"
 DB_FILE   = "sensor.db"
 
+DEFAULT_THRESHOLDS = {
+    "T_cold": 18.0,
+    "H_dry": 30.0,
+    "W_open": 600.0
+}
+
 # Read from DB
 def load_recent(minutes=30):
     since = int(time.time()) - minutes * 60
@@ -27,11 +33,7 @@ def load_recent(minutes=30):
 # Threshold Calculation
 def compute_thresholds(rows):
     if len(rows) < 20:
-        return {
-            "T_cold": 18.0,
-            "H_dry": 30.0,
-            "W_open": 600.0
-        }
+        return dict(DEFAULT_THRESHOLDS)
 
     temps = np.array([r[0] for r in rows], dtype=float)
     hums  = np.array([r[1] for r in rows], dtype=float)
@@ -43,10 +45,19 @@ def compute_thresholds(rows):
         "W_open": 600
     }
 
-# Decision Logic
-def decide(temp, hum, win, th):
+def heater_decision(temp, hum, win, thresholds=None):
+    th = dict(DEFAULT_THRESHOLDS)
+    if thresholds:
+        th.update(thresholds)
+
+    if win is None:
+        return "OFF", "No window data"
+
     if win >= th["W_open"]:
         return "OFF", "Window open – heating disabled"
+
+    if temp is None or hum is None:
+        return "OFF", "Missing temperature/humidity data"
 
     if temp < th["T_cold"] and hum >= th["H_dry"]:
         return "ON", "Temperature below adaptive threshold"
@@ -55,6 +66,10 @@ def decide(temp, hum, win, th):
         return "OFF", "Air too dry – heating not recommended"
 
     return "OFF", "Temperature comfortable"
+
+# Decision Logic (compat shim)
+def decide(temp, hum, win, th):
+    return heater_decision(temp, hum, win, th)
 
 # MQTT callback
 def on_connect(client, userdata, flags, rc):
