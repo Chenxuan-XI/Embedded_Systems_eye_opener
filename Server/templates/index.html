@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MQTT Temperature / Window / Heater Panel</title>
+  <style>
+    :root { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial; }
+    body { margin: 0; background: #0b1220; color: #e6edf3; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 20px; }
+    .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    .card {
+      grid-column: span 12;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 16px;
+      backdrop-filter: blur(6px);
+    }
+    @media (min-width: 760px){
+      .card.half { grid-column: span 6; }
+      .card.third { grid-column: span 4; }
+    }
+    h1 { margin: 0 0 10px; font-size: 18px; font-weight: 650; }
+    h2 { margin: 0 0 8px; font-size: 14px; opacity: .9; font-weight: 650; }
+    .muted { opacity: .75; font-size: 12px; }
+    .kv { display:flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+    .big { font-size: 40px; font-weight: 750; letter-spacing: .5px; }
+    .pill {
+      display:inline-flex; align-items:center; gap: 8px;
+      border-radius: 999px; padding: 6px 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      font-size: 12px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: #64748b; box-shadow: 0 0 0 3px rgba(100,116,139,.18); }
+    .dot.ok { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }
+    .dot.bad { background: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.18); }
+    .controls { display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+    input, button {
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+      color: #e6edf3;
+      padding: 10px 12px;
+      outline: none;
+    }
+    input { min-width: 220px; }
+    button { cursor: pointer; font-weight: 650; }
+    button.primary { background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.35); }
+    button.danger  { background: rgba(239,68,68,0.16); border-color: rgba(239,68,68,0.35); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .split { display:flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .state {
+      font-size: 14px; font-weight: 700;
+      padding: 6px 10px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+    }
+    .state.on { border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.12); }
+    .state.off { border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.12); }
+    .log {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas;
+      font-size: 12px; line-height: 1.4;
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 12px;
+      padding: 10px;
+      height: 160px;
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="card">
+      <div class="split">
+        <div>
+          <h1>MQTT Device Dashboard</h1>
+          <div class="pill"><span id="connDot" class="dot"></span><span id="connText">Disconnected</span></div>
+          <div class="muted" id="connHint">
+            Please configure MQTT WebSocket URL, e.g. ws://127.0.0.1:9001
+          </div>
+        </div>
+        <div class="controls">
+          <input id="wsUrl" placeholder="MQTT WS URL (ws://host:port/path)" />
+          <input id="clientId" placeholder="Client ID (leave empty to auto-generate)" />
+          <input id="username" placeholder="Username (optional)" />
+          <input id="password" placeholder="Password (optional)" type="password" />
+          <button class="primary" id="btnConnect">Connect</button>
+          <button id="btnDisconnect" disabled>Disconnect</button>
+        </div>
+        <div class="muted">
+          Note: Browsers must connect via <b>WebSocket</b> port (not TCP 1883).
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card half">
+        <h2>Distance</h2>
+        <div class="kv">
+          <div class="big"><span id="distValue">--</span><span style="font-size:20px;opacity:.85"> cm</span></div>
+          <div class="muted">Topic: <span id="tDist">home/window</span></div>
+        </div>
+        <div class="muted">Last update: <span id="distAt">--</span></div>
+      </div>
+
+      <div class="card half">
+        <h2>Real-time Temperature</h2>
+        <div class="kv">
+          <div class="big"><span id="tempValue">--</span><span style="font-size:20px;opacity:.85"> °C</span></div>
+          <div class="muted">Topic: <span id="tTemp">home/temperature</span></div>
+        </div>
+        <div class="muted">Last update: <span id="tempAt">--</span></div>
+      </div>
+
+      <div class="card half">
+        <h2>Window Status</h2>
+        <div class="kv">
+          <div id="windowState" class="state">--</div>
+          <div class="muted">Topic: <span id="tWindow">home/window</span></div>
+        </div>
+        <div class="muted">Last update: <span id="windowAt">--</span></div>
+      </div>
+
+      <div class="card third">
+        <h2>Heater Control</h2>
+        <div class="kv">
+          <div id="heaterState" class="state">Unknown</div>
+        </div>
+        <div class="controls" style="margin-top:12px">
+          <button class="primary" id="btnHeaterOn" disabled>Turn ON</button>
+          <button class="danger" id="btnHeaterOff" disabled>Turn OFF</button>
+        </div>
+        <div class="muted" style="margin-top:10px">
+          Publish: <span id="tHeaterSet">home/heater/set</span><br/>
+          Subscribe: <span id="tHeaterState">home/heater/state</span> (optional)
+        </div>
+      </div>
+
+      <div class="card" style="grid-column: span 12;">
+        <h2>Topic Configuration</h2>
+        <div class="controls">
+          <input id="topicTemp" />
+          <input id="topicWindow" />
+          <input id="topicHeaterSet" />
+          <input id="topicHeaterState" />
+          <button id="btnApplyTopics" disabled>Apply & Re-subscribe</button>
+        </div>
+        <div class="muted">
+          Recommended payloads: temperature as number; states as ON/OFF or OPEN/CLOSED.
+        </div>
+      </div>
+
+      <div class="card" style="grid-column: span 12;">
+        <h2>Log</h2>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    // Default topics (match your publisher)
+    let TOPIC_DISTANCE = "home/window";      // your distance topic
+    let TOPIC_TEMP     = "home/temp";
+    let TOPIC_HUM      = "home/humidity";
+    let TOPIC_HEATER_SET   = "home/heater/set";
+    let TOPIC_HEATER_STATE = "home/heater/state"; // optional
+
+    // Fill the topic inputs on page load (if you keep that UI)
+    document.getElementById("topicTemp").value = TOPIC_TEMP;
+    document.getElementById("topicWindow").value = TOPIC_DISTANCE;
+    document.getElementById("topicHeaterSet").value = TOPIC_HEATER_SET;
+    document.getElementById("topicHeaterState").value = TOPIC_HEATER_STATE;
+
+    // Connection UI helpers
+    const connDot  = document.getElementById("connDot");
+    const connText = document.getElementById("connText");
+    function setConn(ok, text){
+      connDot.className = "dot " + (ok ? "ok" : "bad");
+      connText.textContent = text;
+    }
+
+    // Elements to update (distance card IDs)
+    const distValue = document.getElementById("distValue") || document.getElementById("windowState");
+    const distAt    = document.getElementById("distAt")    || document.getElementById("windowAt");
+    const tempValue = document.getElementById("tempValue");
+    const tempAt    = document.getElementById("tempAt");
+
+    // Buttons
+    const btnConnect = document.getElementById("btnConnect");
+    const btnDisconnect = document.getElementById("btnDisconnect");
+    const btnApplyTopics = document.getElementById("btnApplyTopics");
+    const btnHeaterOn = document.getElementById("btnHeaterOn");
+    const btnHeaterOff = document.getElementById("btnHeaterOff");
+
+    let client = null;
+
+    function nowStr(){ return new Date().toLocaleString(); }
+
+    function subscribeAll(){
+      if (!client) return;
+      const topics = [TOPIC_DISTANCE, TOPIC_TEMP, TOPIC_HUM, TOPIC_HEATER_STATE].filter(Boolean);
+      client.subscribe(topics, (err) => {
+        if (err) console.log("subscribe err:", err);
+      });
+    }
+
+    function logLine(...a){
+      console.log(...a);
+      const el = document.getElementById("log");
+      el.textContent += `[${new Date().toLocaleTimeString()}] ${a.join(" ")}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+
+
+    btnConnect.addEventListener("click", () => {
+      const url = document.getElementById("wsUrl").value.trim() || "ws://10.215.255.119:9001";
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      const clientIdInput = document.getElementById("clientId").value.trim();
+      const clientId = clientIdInput || ("web_" + Math.random().toString(16).slice(2));
+
+      setConn(false, "Connecting...");
+
+      client = mqtt.connect(url, {
+        clientId,
+        username: username || undefined,
+        password: password || undefined,
+        keepalive: 30,
+        reconnectPeriod: 1000, // auto reconnect
+        clean: true
+      });
+
+      client.on("connect", () => {
+        setConn(true, "Connected");
+        btnDisconnect.disabled = false;
+        btnApplyTopics.disabled = false;
+        btnHeaterOn.disabled = false;
+        btnHeaterOff.disabled = false;
+        subscribeAll();
+      });
+
+      client.on("reconnect", () => setConn(false, "Reconnecting..."));
+      client.on("close", () => {
+        setConn(false, "Disconnected");
+        btnDisconnect.disabled = true;
+        btnApplyTopics.disabled = true;
+        btnHeaterOn.disabled = true;
+        btnHeaterOff.disabled = true;
+      });
+      client.on("error", (e) => console.log("mqtt error:", e));
+
+      client.on("message", (topic, payload) => {
+        const msg = payload.toString();
+
+        if (topic === TOPIC_DISTANCE) {
+          // Show as distance (cm)
+          distValue.textContent = msg + (distValue.id === "windowState" ? " cm" : "");
+          distAt.textContent = nowStr();
+        } else if (topic === TOPIC_TEMP) {
+          tempValue.textContent = msg;
+          tempAt.textContent = nowStr();
+        }
+        // add humidity/heater state handling similarly if you want
+      });
+    });
+
+    btnDisconnect.addEventListener("click", () => {
+      if (client) {
+        client.end(true);
+        client = null;
+      }
+    });
+
+    // Apply topic changes from the inputs
+    btnApplyTopics.addEventListener("click", () => {
+      const newTemp = document.getElementById("topicTemp").value.trim();
+      const newDist = document.getElementById("topicWindow").value.trim();
+      const newSet  = document.getElementById("topicHeaterSet").value.trim();
+      const newState= document.getElementById("topicHeaterState").value.trim();
+
+      TOPIC_TEMP = newTemp;
+      TOPIC_DISTANCE = newDist;
+      TOPIC_HEATER_SET = newSet;
+      TOPIC_HEATER_STATE = newState;
+
+      document.getElementById("tTemp").textContent = TOPIC_TEMP;
+      document.getElementById("tWindow").textContent = TOPIC_DISTANCE;
+      document.getElementById("tHeaterSet").textContent = TOPIC_HEATER_SET;
+      document.getElementById("tHeaterState").textContent = TOPIC_HEATER_STATE;
+
+      if (client) {
+        // easiest: unsubscribe all then resubscribe
+        client.unsubscribe("#", () => subscribeAll());
+      }
+    });
+
+    // Heater buttons publish commands
+    btnHeaterOn.addEventListener("click", () => client && client.publish(TOPIC_HEATER_SET, "ON"));
+    btnHeaterOff.addEventListener("click", () => client && client.publish(TOPIC_HEATER_SET, "OFF"));
+
+    // Initial UI
+    setConn(false, "Disconnected");
+    document.getElementById("tTemp").textContent = TOPIC_TEMP;
+    document.getElementById("tWindow").textContent = TOPIC_DISTANCE;
+    document.getElementById("tHeaterSet").textContent = TOPIC_HEATER_SET;
+    document.getElementById("tHeaterState").textContent = TOPIC_HEATER_STATE;
+  </script>
+
+  <!-- JS logic unchanged -->
+</body>
+</html>
