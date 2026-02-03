@@ -26,7 +26,8 @@ TOPIC_HEATER = "cx/iotbox01/heater"
 # ======================
 # Control thresholds / tuning
 # ======================
-WINDOW_OPEN_THRESHOLD = 500.0
+WINDOW_OPEN_THRESHOLD = 20
+TEMP_OFF_HYSTERESIS = 3.0
 
 # "bad for my health" thresholds (adjust to your needs)
 TEMP_BAD_LOW = 16.0
@@ -37,8 +38,12 @@ HUM_BAD_HIGH = 70.0
 DEFAULT_THRESHOLDS = {
     "T_cold": 18.0,
     "H_dry": 30.0,
-    "W_open": 600.0
+    "W_open": 20
 }
+
+LOG_MOVING_AVG = False
+LOG_SENSOR_DATA = False
+LOG_AUTO_MODE = False
 
 DB_FILE = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "sensor.db"))
 
@@ -105,7 +110,7 @@ def compute_thresholds(rows):
     }
 
 
-def heater_decision_local(temp, hum, win, thresholds=None):
+def heater_decision_local(temp, hum, win, thresholds=None, last_state=None):
     th = dict(DEFAULT_THRESHOLDS)
     if thresholds:
         th.update(thresholds)
@@ -125,6 +130,13 @@ def heater_decision_local(temp, hum, win, thresholds=None):
     if temp < th["T_cold"] and hum < th["H_dry"]:
         return "OFF", "Air too dry – heating not recommended"
 
+    if (
+        last_state == "ON"
+        and hum >= th["H_dry"]
+        and temp < th["T_cold"] + TEMP_OFF_HYSTERESIS
+    ):
+        return "ON", "Within hysteresis band"
+
     return "OFF", "Temperature comfortable"
 
 # Health alert cooldown so you don't get spammed
@@ -136,9 +148,9 @@ HEALTH_ALERT_COOLDOWN_SEC = 15 * 60
 state_lock = threading.Lock()
 
 settings = {
-    # tri-state: "Automatic" | "Alert" | "Off"
-    "off_when_window_open": "Automatic",
-    "on_when_window_shut": "Automatic",
+    # 4-state: "Automatic" | "Smart" | "Alert" | "Off"
+    "auto_off_mode": "Automatic",
+    "auto_on_mode": "Automatic",
     # two-state: "ON" | "OFF"
     "open_window_health_alert": "OFF",
 }
@@ -234,6 +246,17 @@ def _parse_json_or_text(payload: str) -> dict | None:
         return None
 
 
+def pick_cmd(cmds):
+    if not cmds:
+        return None
+    # Prefer OFF if conflicting decisions happen
+    if "OFF" in cmds:
+        return "OFF"
+    if "ON" in cmds:
+        return "ON"
+    return None
+
+
 def on_message(client, userdata, msg):
     topic = msg.topic
     raw = msg.payload.decode(errors="ignore").strip()
@@ -266,7 +289,8 @@ def on_message(client, userdata, msg):
     if topic != TOPIC_SENSOR:
         return
 
-    print("Received Sensor Data:", raw)
+    if(LOG_SENSOR_DATA):
+        print("Received Sensor Data:", raw)
 
     try:
         data = json.loads(raw)
@@ -299,57 +323,76 @@ def on_message(client, userdata, msg):
         avg_window = window_val
 
     window_is_open = avg_window > WINDOW_OPEN_THRESHOLD
-    print("Moving Average window:", avg_window, "window_is_open:", window_is_open)
+    if(LOG_MOVING_AVG):
+        print("Moving Average window:", avg_window, "window_is_open:", window_is_open)
 
     # health alert hook
     maybe_send_health_alert(temp_val, hum_val, window_is_open)
 
     # Read settings (no manual override timer anymore)
     with state_lock:
-        off_when_open = settings["off_when_window_open"]
-        on_when_shut = settings["on_when_window_shut"]
+        auto_off_mode = settings["auto_off_mode"]
+        auto_on_mode = settings["auto_on_mode"]
 
     # Adaptive thresholds from last 30 minutes (DB-backed)
     try:
-        rows = load_recent(minutes=30)
+        rows = load_recent(minutes=30, db_file="sensor.db")
         th = compute_thresholds(rows)
     except Exception as e:
         print("Threshold compute failed:", e)
         th = dict(DEFAULT_THRESHOLDS)
     th["W_open"] = WINDOW_OPEN_THRESHOLD
+    with state_lock:
+        current_heater_state = last_published_heater
 
     # Auto logic based on settings
+    cmds = []
+    reason = None
+
+    # Automatic window-based actions
     if window_is_open:
-        if off_when_open == "Automatic":
-            cmd, reason = heater_decision_local(
-                temp_val,
-                hum_val,
-                avg_window,
-                thresholds=th,
-            )
-            publish_heater(cmd, reason=reason)
-        elif off_when_open == "Alert":
+        if auto_off_mode == "Automatic":
+            cmds.append("OFF")
+            reason = "Window open – automatic OFF"
+        elif auto_off_mode == "Alert":
             send_phone_notification(
                 "Window open",
                 "Window appears open. Heater NOT auto-turned off (Alert mode)."
             )
-        # Off => do nothing
     else:
-        if on_when_shut == "Automatic":
-            cmd, reason = heater_decision_local(
-                temp_val,
-                hum_val,
-                avg_window,
-                thresholds=th,
-            )
-            publish_heater(cmd, reason=reason)
-        elif on_when_shut == "Alert":
+        if auto_on_mode == "Automatic":
+            cmds.append("ON")
+            reason = "Window closed – automatic ON"
+        elif auto_on_mode == "Alert":
             send_phone_notification(
                 "Window shut",
                 "Window appears shut. Heater NOT auto-turned on (Alert mode)."
             )
-        # Off => do nothing
-    print(off_when_open,on_when_shut)
+
+    # Smart decision engine (optional)
+    if auto_off_mode == "Smart" or auto_on_mode == "Smart":
+        cmd_engine, reason_engine = heater_decision_local(
+            temp_val,
+            hum_val,
+            avg_window,
+            thresholds=th,
+            last_state=current_heater_state,
+        )
+
+        if cmd_engine == "OFF" and auto_off_mode == "Smart":
+            cmds.append("OFF")
+            reason = reason_engine
+        elif cmd_engine == "ON" and auto_on_mode == "Smart":
+            cmds.append("ON")
+            reason = reason_engine
+
+    final_cmd = pick_cmd(cmds)
+    if final_cmd:
+        publish_heater(final_cmd, reason=reason or "Auto decision")
+    if(LOG_AUTO_MODE):
+        print("Off Mode: ", auto_off_mode, ", On Mode: ", auto_on_mode)
+
+
 
 
 def mqtt_loop():
@@ -374,10 +417,6 @@ def api_heater():
     """
     Receives heater command from UI (HTTP), publishes MQTT from server.
     JSON: { "command": "ON" | "OFF" }
-
-    NEW: flips settings instead of using a timed manual override.
-      - ON  => off_when_window_open becomes Off
-      - OFF => on_when_window_shut becomes Off
     """
     data = request.get_json(silent=True) or {}
     cmd = _normalize_cmd(data.get("command"))
@@ -398,8 +437,8 @@ def api_settings():
     """
     GET returns current settings
     POST accepts partial updates:
-      - off_when_window_open: "Automatic" | "Alert" | "Off"
-      - on_when_window_shut:  "Automatic" | "Alert" | "Off"
+      - auto_off_mode:        "Automatic" | "Smart" | "Alert" | "Off"
+      - auto_on_mode:         "Automatic" | "Smart" | "Alert" | "Off"
       - open_window_health_alert: "ON" | "OFF"
     """
     if request.method == "GET":
@@ -408,22 +447,22 @@ def api_settings():
 
     data = request.get_json(silent=True) or {}
 
-    def valid_tri(v): return v in ("Automatic", "Alert", "Off")
+    def valid_mode(v): return v in ("Automatic", "Smart", "Alert", "Off")
     def valid_onoff(v): return v in ("ON", "OFF")
 
     patch = {}
 
-    if "off_when_window_open" in data:
-        v = str(data["off_when_window_open"])
-        if not valid_tri(v):
-            return jsonify({"error": "off_when_window_open must be Automatic, Alert, or Off"}), 400
-        patch["off_when_window_open"] = v
+    if "auto_off_mode" in data:
+        v = str(data["auto_off_mode"])
+        if not valid_mode(v):
+            return jsonify({"error": "auto_off_mode must be Automatic, Smart, Alert, or Off"}), 400
+        patch["auto_off_mode"] = v
 
-    if "on_when_window_shut" in data:
-        v = str(data["on_when_window_shut"])
-        if not valid_tri(v):
-            return jsonify({"error": "on_when_window_shut must be Automatic, Alert, or Off"}), 400
-        patch["on_when_window_shut"] = v
+    if "auto_on_mode" in data:
+        v = str(data["auto_on_mode"])
+        if not valid_mode(v):
+            return jsonify({"error": "auto_on_mode must be Automatic, Smart, Alert, or Off"}), 400
+        patch["auto_on_mode"] = v
 
     if "open_window_health_alert" in data:
         v = str(data["open_window_health_alert"]).upper()

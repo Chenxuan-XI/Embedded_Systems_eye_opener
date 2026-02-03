@@ -189,15 +189,15 @@
     </div>
 
     <div class="drawerRow">
-      <div><b>Turn OFF heater when window is open</b></div>
-      <div class="segRow" id="segOffWhenOpen"></div>
-      <div class="hint">Automatic: server forces OFF. Alert: server warns only. Off: ignore.</div>
+      <div><b>Automatic OFF mode</b></div>
+      <div class="segRow" id="segAutoOff"></div>
+      <div class="hint">Automatic: turn OFF when window open. Smart: decision engine. Alert: notify only. Off: ignore.</div>
     </div>
 
     <div class="drawerRow">
-      <div><b>Turn ON heater when window is shut</b></div>
-      <div class="segRow" id="segOnWhenShut"></div>
-      <div class="hint">Automatic: server forces ON. Alert: server warns only. Off: ignore.</div>
+      <div><b>Automatic ON mode</b></div>
+      <div class="segRow" id="segAutoOn"></div>
+      <div class="hint">Automatic: turn ON when window closed. Smart: decision engine. Alert: notify only. Off: ignore.</div>
     </div>
 
     <div class="drawerRow">
@@ -316,8 +316,8 @@
   const drawerOverlay = document.getElementById("drawerOverlay");
   const settingsStatus = document.getElementById("settingsStatus");
 
-  const segOffWhenOpen = document.getElementById("segOffWhenOpen");
-  const segOnWhenShut  = document.getElementById("segOnWhenShut");
+  const segAutoOff    = document.getElementById("segAutoOff");
+  const segAutoOn     = document.getElementById("segAutoOn");
   const segHealthAlert = document.getElementById("segHealthAlert");
 
   let client = null;
@@ -403,26 +403,29 @@
 
   // ===== NEW: manual rule flip (no timers) =====
   async function manualRuleFlip(cmd){
-    // If user turned heater ON manually -> disable rule that might turn it OFF
     if (cmd === "ON") {
+      const patch = {
+        auto_off_mode: "Off",
+      };
       try {
-        await saveSettings({ off_when_window_open: "Off" });
-        // (Optional) ensure UI reflects immediately
+        await saveSettings(patch);
         seg1?.setActive("Off");
-        log("Manual heater ON → set off_when_window_open = Off");
+        log("Manual heater ON → disable auto turn OFF");
       } catch (e) {
-        log(`❌ Manual flip failed (off_when_window_open): ${e.message}`);
+        log(`❌ Manual flip failed (auto turn OFF): ${e.message}`);
       }
     }
 
-    // If user turned heater OFF manually -> disable rule that might turn it ON
     if (cmd === "OFF") {
+      const patch = {
+        auto_on_mode: "Off",
+      };
       try {
-        await saveSettings({ on_when_window_shut: "Off" });
+        await saveSettings(patch);
         seg2?.setActive("Off");
-        log("Manual heater OFF → set on_when_window_shut = Off");
+        log("Manual heater OFF → disable auto turn ON");
       } catch (e) {
-        log(`❌ Manual flip failed (on_when_window_shut): ${e.message}`);
+        log(`❌ Manual flip failed (auto turn ON): ${e.message}`);
       }
     }
   }
@@ -489,6 +492,7 @@
 
   const triOptions = [
     { label: "Automatic", value: "Automatic" },
+    { label: "Smart", value: "Smart" },
     { label: "Alert", value: "Alert" },
     { label: "Off", value: "Off" },
   ];
@@ -498,6 +502,31 @@
   ];
 
   let seg1 = null, seg2 = null, seg3 = null;
+  let currentAutoOff = null;
+  let currentAutoOn = null;
+
+  function normalizeMode(v){
+    if (v === "Automatic" || v === "Smart" || v === "Alert" || v === "Off") return v;
+    return null;
+  }
+
+  function sanitizeModes(changedKey, nextValue){
+    const proposedOff = (changedKey === "auto_off_mode") ? nextValue : currentAutoOff;
+    const proposedOn  = (changedKey === "auto_on_mode") ? nextValue : currentAutoOn;
+
+    if (
+      (proposedOff === "Automatic" && proposedOn === "Smart") ||
+      (proposedOff === "Smart" && proposedOn === "Automatic")
+    ) {
+      // Disallow mixed Automatic/Smart: adjust the other switch to match
+      if (changedKey === "auto_off_mode") {
+        return { auto_off_mode: nextValue, auto_on_mode: nextValue };
+      }
+      return { auto_on_mode: nextValue, auto_off_mode: nextValue };
+    }
+
+    return { [changedKey]: nextValue };
+  }
 
   async function loadSettings(){
     settingsStatus.textContent = "Loading settings…";
@@ -505,12 +534,15 @@
       const res = await fetch("/api/settings");
       const data = await res.json();
 
-      seg1 = makeSegment(segOffWhenOpen, triOptions, data.off_when_window_open, async (val) => {
-        await saveSettings({ off_when_window_open: val });
+      currentAutoOff = normalizeMode(data.auto_off_mode);
+      currentAutoOn = normalizeMode(data.auto_on_mode);
+
+      seg1 = makeSegment(segAutoOff, triOptions, currentAutoOff || "Automatic", async (val) => {
+        await saveSettings(sanitizeModes("auto_off_mode", val));
       });
 
-      seg2 = makeSegment(segOnWhenShut, triOptions, data.on_when_window_shut, async (val) => {
-        await saveSettings({ on_when_window_shut: val });
+      seg2 = makeSegment(segAutoOn, triOptions, currentAutoOn || "Automatic", async (val) => {
+        await saveSettings(sanitizeModes("auto_on_mode", val));
       });
 
       seg3 = makeSegment(segHealthAlert, onOffOptions, data.open_window_health_alert, async (val) => {
@@ -531,8 +563,14 @@
 
       // keep UI in sync if server canonicalizes
       if (data?.settings){
-        seg1?.setActive(data.settings.off_when_window_open);
-        seg2?.setActive(data.settings.on_when_window_shut);
+        if (normalizeMode(data.settings.auto_off_mode)) {
+          currentAutoOff = data.settings.auto_off_mode;
+          seg1?.setActive(currentAutoOff);
+        }
+        if (normalizeMode(data.settings.auto_on_mode)) {
+          currentAutoOn = data.settings.auto_on_mode;
+          seg2?.setActive(currentAutoOn);
+        }
         seg3?.setActive(data.settings.open_window_health_alert);
       }
 
