@@ -142,7 +142,53 @@ The system architecture allows new subscribers to join at any time and immediate
 
 ---
 
-## Decision / fusion logic
+## Decision, storage & backend processing
+
+### Overview
+
+The client-side backend subscribes to sensor data via MQTT and performs **three main tasks**:
+
+1. sensor data fusion and decision-making,
+2. persistent data storage using a lightweight SQL database,
+3. serving processed information to the web-based user interface.
+
+This design separates sensing, processing, and presentation, improving robustness and extensibility.
+
+### Sensor data fusion and decision logic
+
+Incoming sensor data (temperature, humidity, and window distance) is fused to infer the current environmental state.
+Window state is inferred from analogue distance measurements, and a **comfort score** is computed to summarise indoor conditions.
+
+Based on the fused data, rule-based logic generates a **high-level heating recommendation** together with explanatory reasons for the user.
+
+### Data persistence (SQL database)
+
+To enable historical analysis and future extensions, sensor data is **persistently stored** in a local **SQLite database**.
+
+For each received MQTT message, the system logs:
+
+* timestamp,
+* temperature,
+* humidity,
+* window measurement.
+
+This database enables:
+
+* tracking of long-term indoor conditions,
+* improving robustness of the data collection from sensors,
+* potential future features such as trend visualisation or adaptive decision thresholds.
+
+### Backend architecture
+
+The backend operates as an event-driven system:
+
+* MQTT callbacks handle incoming sensor messages,
+* parsed data is stored in the SQL database,
+* fused results are exposed to the web interface via HTTP endpoints.
+
+This modular backend design allows individual components (decision logic, storage, UI) to be extended or replaced independently.
+
+---
 
 ## Web UI
 
