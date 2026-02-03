@@ -192,6 +192,44 @@ This modular backend design allows individual components (decision logic, storag
 
 ## Web UI
 
+### Overview
+
+A web-based dashboard is implemented to provide **real-time monitoring and interaction** with the IoT system.
+The interface connects directly to the MQTT broker using **MQTT over WebSocket**, enabling live data visualisation and control directly from a standard web browser without additional backend services.
+
+### Real-time monitoring
+
+The dashboard displays key environmental information in real time, including:
+
+* **Indoor temperature**
+* **Indoor humidity**
+* **Window state (open / closed)**
+* **Heater status**
+
+Incoming MQTT messages are decoded in the browser and reflected immediately in the user interface 
+and visual elements such as status indicators, colour-coded states, and large numeric displays are used to improve clarity and accessibility.
+
+### MQTT WebSocket integration
+
+Due to browser security constraints, the web interface connects to the MQTT broker via a **WebSocket endpoint** rather than the standard TCP port.
+
+The UI allows users to configure:
+
+* MQTT WebSocket URL,
+* client ID and authentication parameters.
+
+### User interaction and control
+
+In addition to passive monitoring, the interface supports **active control** of the system:
+
+* Users can publish commands to control the heater (ON / OFF).
+* Heater state feedback can be subscribed to and displayed when available.
+* Topic configuration can be updated at runtime without reloading the page.
+
+This bidirectional interaction demonstrates a complete IoT control loop, from sensing to actuation.
+
+---
+
 ## How to run
 ### Sensor node (Raspberry Pi)
 ### Client / Web UI
@@ -201,4 +239,7 @@ This modular backend design allows individual components (decision logic, storag
 - Demo video:
 
 ## Future work (advanced features)
+Future development of the system could focus on extending both functionality and intelligence. Historical sensor data stored in the SQL database could be used to visualise long-term trends and to adapt decision thresholds automatically. More advanced data fusion or lightweight machine learning techniques could be introduced to personalise comfort recommendations based on user behaviour.
+
+The system could also be extended to support multiple sensor nodes and users, integrate directly with smart heating systems, and remain operational during temporary network outages through local buffering. Finally, a dedicated enclosure and additional environmental sensors could further improve robustness and commercial viability.
 
