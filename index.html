@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Smart Window & Heater Advisor</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    body {
+      background: #0b0f14;
+      color: #e6edf3;
+      line-height: 1.6;
+    }
+
+    /* ================= NAVBAR ================= */
+
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      background: #0b0f14;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(4px);
+    }
+
+    .navbar.scrolled {
+      border-bottom: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .nav-row {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      padding: 0 6%;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      margin-right: 48px;
+      flex-shrink: 0;
+    }
+
+    .logo img {
+      height: 100px;
+      width: auto;
+    }
+
+    .nav-links {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      flex: 1;
+    }
+
+    .nav-links a {
+      color: #e6edf3;
+      text-decoration: none;
+      font-size: 0.95rem;
+      opacity: 0.75;
+    }
+
+    .nav-links a:hover {
+      opacity: 1;
+    }
+
+    .nav-actions {
+      display: flex;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+
+    .login {
+      color: #e6edf3;
+      text-decoration: none;
+      opacity: 0.8;
+    }
+
+    .cta {
+      background: #e6edf3;
+      color: #0b0f14;
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-decoration: none;
+    }
+
+    /* ================= HERO ================= */
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 120px 8%;
+      gap: 60px;
+      align-items: center;
+      background: #0b0f14;
+    }
+
+    .hero-text h1 {
+      font-size: 3rem;
+      margin-bottom: 20px;
+    }
+
+    .hero-text p {
+      font-size: 1.2rem;
+      color: #b8c2cc;
+    }
+
+    .hero-media video {
+      width: 100%;
+      border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    }
+
+    /* ================= GOALS ================= */
+
+    .goals {
+      padding: 100px 8% 80px;
+      background:
+        radial-gradient(800px 400px at 10% 0%, rgba(48,120,255,0.12), transparent 60%),
+        radial-gradient(700px 380px at 90% 20%, rgba(0,200,160,0.12), transparent 65%),
+        #0b0f14;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .goals-inner {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .goals h2 {
+      font-size: 2.4rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .goals p {
+      font-size: 1.05rem;
+      color: #b8c2cc;
+    }
+
+    .goals-quote {
+      margin-top: 22px;
+      padding: 18px 20px;
+      border-left: 3px solid rgba(48,180,255,0.7);
+      background: rgba(10,16,26,0.35);
+      font-size: 1rem;
+      line-height: 1.7;
+      color: #d8e1ea;
+    }
+
+    .goals-chart {
+      margin-top: 26px;
+      padding: 18px 20px 16px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(12,20,32,0.9), rgba(8,12,20,0.7));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+    }
+
+    .goals-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      color: #0b0f14;
+      background: linear-gradient(120deg, rgba(48,180,255,0.9), rgba(0,220,180,0.9));
+      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+    }
+
+    .goals-cta:hover {
+      filter: brightness(1.05);
+    }
+
+    .goals-chart h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      margin-bottom: 14px;
+    }
+
+    .chart-row {
+      display: grid;
+      grid-template-columns: 130px 1fr;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .chart-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .chart-label {
+      font-size: 0.82rem;
+      color: #b8c2cc;
+      line-height: 1.4;
+    }
+
+    .chart-bar {
+      position: relative;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+
+    .chart-bar span {
+      position: absolute;
+      inset: 0;
+      width: var(--value);
+      border-radius: 999px;
+      background: linear-gradient(90deg, rgba(48,180,255,0.8), rgba(0,220,180,0.7));
+      box-shadow: 0 0 18px rgba(48,180,255,0.35);
+    }
+
+    .chart-value {
+      font-size: 0.8rem;
+      color: #d8e1ea;
+      margin-top: 6px;
+    }
+
+    .goals-badges {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .goals-media {
+      position: relative;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.45);
+      margin-bottom: 18px;
+    }
+
+    .goals-media img {
+      width: 100%;
+      display: block;
+      filter: saturate(1.1) contrast(1.05);
+    }
+
+    .goals-media::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(140deg, rgba(9,18,30,0.72), rgba(9,18,30,0.18) 45%, rgba(0,0,0,0.55)),
+        radial-gradient(260px 180px at 15% 15%, rgba(48,180,255,0.25), transparent 60%);
+      pointer-events: none;
+    }
+
+    .goals-badge {
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(15,25,40,0.9), rgba(12,18,30,0.65));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.35);
+    }
+
+    .goals-badge h4 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+      letter-spacing: 0.03em;
+    }
+
+    .goals-badge p {
+      font-size: 0.85rem;
+      color: #b8c2cc;
+    }
+
+    /* ===== HERO → FEATURE 分割线 ===== */
+
+    .section-divider {
+      height: 1px;
+      background: rgba(255,255,255,0.08);
+      margin: 0 6%;
+    }
+
+    /* ================= FEATURE MAP ================= */
+
+    .features-map {
+      background: #0f1b2d;
+      color: #e6edf3;
+      padding: 160px 6% 140px;
+    }
+
+    .features-hero {
+      max-width: 720px;
+      margin: 0 auto 120px;
+      text-align: center;
+    }
+
+    .features-hero h2 {
+      font-size: 3.4rem;
+      font-weight: 500;
+      line-height: 1.15;
+    }
+
+    /* 内容布局 */
+    .features-grid {
+      display: grid;
+      grid-template-columns: 420px minmax(560px, 1fr);
+      gap: 80px;
+    }
+
+    .feature-item h3 {
+      font-size: 1.05rem;
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    .feature-item p {
+      font-size: 0.95rem;
+      color: #b8c2cc;
+      line-height: 1.6;
+      max-width: 380px;
+    }
+
+    .divider {
+      height: 1px;
+      background: rgba(255,255,255,0.12);
+      margin: 36px 0;
+    }
+
+    .features-right {
+      min-height: 520px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .radial-map {
+      position: relative;
+      width: 520px;
+      height: 520px;
+      max-width: 90vw;
+      max-height: 90vw;
+    }
+
+    .radial-map::before {
+      content: "";
+      position: absolute;
+      inset: 12%;
+      border-radius: 50%;
+      border: 1px dashed rgba(255,255,255,0.18);
+    }
+
+    .radial-map::after {
+      content: "";
+      position: absolute;
+      inset: 28%;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .radial-center {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 150px;
+      height: 150px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, rgba(123,179,255,0.35), rgba(18,30,48,0.9));
+      border: 1px solid rgba(255,255,255,0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 16px;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.45);
+    }
+
+    .radial-center h4 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+    }
+
+    .radial-node {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 160px;
+      transform:
+        translate(-50%, -50%)
+        rotate(var(--angle))
+        translate(230px)
+        rotate(calc(var(--angle) * -1));
+      text-align: center;
+    }
+
+    .radial-node span {
+      display: inline-block;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: #dbe6f1;
+      background: rgba(18,30,48,0.8);
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+      backdrop-filter: blur(6px);
+    }
+
+
+    @media (max-width: 600px) {
+      .radial-map {
+        width: 360px;
+        height: 360px;
+      }
+
+      .radial-node {
+        width: 130px;
+        transform:
+          translate(-50%, -50%)
+          rotate(var(--angle))
+          translate(165px)
+          rotate(calc(var(--angle) * -1));
+      }
+
+    }
+
+
+    
+    footer {
+      padding: 40px 8%;
+      text-align: center;
+      color: #7f8a96;
+      font-size: 0.9rem;
+      background: #0b0f14;
+    }
+
+    @media (max-width: 900px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .goals-inner {
+        grid-template-columns: 1fr;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header class="navbar">
+  <div class="nav-row">
+    <a href="index.html" class="logo">
+      <img src="logo.png" alt="EYE OPENER logo">
+    </a>
+
+    <nav class="nav-links">
+      <a href="#product">Product</a>
+      <a href="#technology">Technology</a>
+      <a href="#goals">Goal</a>
+      <a href="#experience">Experience</a>
+      <a href="#research">Research</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#learn">Learn</a>
+    </nav>
+
+    <div class="nav-actions">
+      <a href="#login" class="login">Login</a>
+      <a href="#demo" class="cta">Try Demo</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-text">
+    <h1>Smart Window & Heater Advisor</h1>
+    <p>
+      An intelligent IoT system that fuses environmental sensing
+      to help you heat smarter and waste less energy.
+    </p>
+  </div>
+
+  <div class="hero-media">
+    <video autoplay muted loop playsinline>
+      <source src="hero-bg.mp4" type="video/mp4">
+    </video>
+  </div>
+</section>
+
+<section class="goals" id="goals">
+  <div class="goals-inner">
+    <div>
+      <h2>Our Goals</h2>
+      <p>
+        We build with a clear responsibility: reducing unnecessary energy waste,
+        protecting the environment, and making smarter heating a daily habit.
+      </p>
+      <div class="goals-quote">
+        Everyday heating waste in UK homes is equivalent to over half of the annual output of Drax Power Station.
+      </div>
+      <div class="goals-chart" aria-label="Energy comparison chart">
+        <h4>Energy Comparison</h4>
+        <div class="chart-row">
+          <div class="chart-label">Drax 6‑month generation</div>
+          <div>
+            <div class="chart-bar"><span style="--value: 78%;"></span></div>
+            <div class="chart-value">6 TW / year</div>
+          </div>
+        </div>
+        <div class="chart-row">
+          <div class="chart-label">UK heating waste (15 min/day)</div>
+          <div>
+            <div class="chart-bar"><span style="--value: 100%;"></span></div>
+            <div class="chart-value">7.7 TWh / year</div>
+          </div>
+        </div>
+        <a class="goals-cta" href="#goals">View Goal Report</a>
+      </div>
+    </div>
+    <div>
+      <div class="goals-media">
+        <img src="drax.jpg" alt="Drax Power Station at dusk">
+      </div>
+      <div class="goals-badges">
+      <div class="goals-badge">
+        <h4>Environmental Duty</h4>
+        <p>Cut carbon-intensive heat loss with real-time sensing and actionable guidance.</p>
+      </div>
+      <div class="goals-badge">
+        <h4>Systems Intelligence</h4>
+        <p>Fuse local processing with adaptive rules to keep comfort high and waste low.</p>
+      </div>
+      <div class="goals-badge">
+        <h4>Transparent Impact</h4>
+        <p>Make energy decisions explainable and measurable for every household.</p>
+      </div>
+      <div class="goals-badge">
+        <h4>Scalable Future</h4>
+        <p>Designed for deployment across homes, campuses, and smart estates.</p>
+      </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<section class="features-map">
+
+  <!-- 居中标语 -->
+  <div class="features-hero">
+    <h2>🧩 The system behind perception</h2>
+  </div>
+
+  <div class="features-grid">
+
+    <div class="features-left">
+
+      <div class="feature-item">
+        <h3>🧠 Perception-driven Design</h3>
+        <p>
+          The system continuously senses temperature, humidity,
+          and window state to form a real-time understanding of
+          the indoor environment.
+        </p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="feature-item">
+        <h3>⚙️ Embedded Intelligence</h3>
+        <p>
+          Sensor data is processed locally on a Raspberry Pi,
+          enabling low-latency decisions without relying on
+          constant cloud connectivity.
+        </p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="feature-item">
+        <h3>📡 Connected Architecture</h3>
+        <p>
+          Environmental insights are transmitted using MQTT
+          and visualised through a responsive web dashboard.
+        </p>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="feature-item">
+        <h3>🎯 Actionable Insight</h3>
+        <p>
+          Instead of raw data, the system provides clear
+          recommendations that help users reduce energy waste
+          and improve comfort.
+        </p>
+      </div>
+
+    </div>
+
+    <div class="features-right">
+
+      <div class="radial-map" aria-label="System capability map">
+        <div class="radial-center">
+          <h4>EYE OPENER</h4>
+        </div>
+
+        <div class="radial-node pos-top" style="--angle: -90deg;">
+          <span>Sensing</span>
+        </div>
+        <div class="radial-node pos-top-right" style="--angle: -45deg;">
+          <span>Embedded System</span>
+        </div>
+        <div class="radial-node pos-right" style="--angle: 0deg;">
+          <span>Communication</span>
+        </div>
+        <div class="radial-node pos-bottom-right" style="--angle: 45deg;">
+          <span>Decision &amp; Intelligence</span>
+        </div>
+        <div class="radial-node pos-bottom" style="--angle: 90deg;">
+          <span>User Interface</span>
+        </div>
+        <div class="radial-node pos-bottom-left" style="--angle: 135deg;">
+          <span>Data &amp; Backend</span>
+        </div>
+        <div class="radial-node pos-left" style="--angle: 180deg;">
+          <span>Product &amp; Deployment</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  Embedded Systems Coursework · Internet of Things · 2026
+</footer>
+
+<script>
+  window.addEventListener('scroll', () => {
+    document.querySelector('.navbar')
+      .classList.toggle('scrolled', window.scrollY > 10);
+  });
+</script>
+
+</body>
+</html>
