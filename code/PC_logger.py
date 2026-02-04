@@ -18,19 +18,21 @@ def init_db():
         time INTEGER,
         temperature REAL,
         humidity REAL,
-        window REAL
+        window REAL,
+        co2_ppm REAL,
+        tvoc_ppb REAL
     )
     """)
     conn.commit()
     conn.close()
 
 # Data Record
-def insert_row(t, temp, hum, win):
+def insert_row(t, temp, hum, win, co2, tvoc):
     conn = sqlite3.connect(DB_FILE)
     cur = conn.cursor()
     cur.execute(
-        "INSERT INTO sensor_log (time, temperature, humidity, window) VALUES (?, ?, ?, ?)",
-        (t, temp, hum, win)
+        "INSERT INTO sensor_log (time, temperature, humidity, window, co2_ppm, tvoc_ppb) VALUES (?, ?, ?, ?, ?, ?)",
+        (t, temp, hum, win, co2, tvoc)
     )
     conn.commit()
     conn.close()
@@ -47,9 +49,11 @@ def on_message(client, userdata, msg):
         temp = float(data["temperature"])
         hum = float(data["humidity"])
         win = float(data["window"])
+        co2 = float(data["co2_ppm"]) if data.get("co2_ppm") is not None else None
+        tvoc = float(data["tvoc_ppb"]) if data.get("tvoc_ppb") is not None else None
 
-        insert_row(t, temp, hum, win)
-        print("Logged:", t, temp, hum, win)
+        insert_row(t, temp, hum, win, co2, tvoc)
+        print("Logged:", t, temp, hum, win, co2, tvoc)
 
     except Exception as e:
         print("Error parsing/logging:", e)
