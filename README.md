@@ -52,7 +52,7 @@ The client side subscribes to the MQTT data stream and performs:
 ### System data flow
 
 ```
-Sensors (Temp / Humidity / Window State / CO2)
+Sensors (Temp / Humidity / Window State / CO2 / tvoc)
         ↓  I²C
 Raspberry Pi (Sensor Node)
         ↓  MQTT (JSON)
@@ -83,7 +83,7 @@ The system uses multiple sensors to capture different aspects of the indoor envi
 | **Si7021**                                   | Temperature, Humidity    | Monitoring indoor comfort and humidity/temperature conditions |
 | **ADS1115 (ADC)**                            | Analogue input           | Interface for distance / window state sensing                 |
 | **Adafruit 984/HRLV-EZ1 Acoustic proximity** | Window open/closed state | Detecting ventilation while heating is active                 |
-| **CCS881**                                   | CO2 ppm                  | Measuring CO2 in the room                                     |
+| **CCS881**                                   | CO2 ppm / tvoc ppb       | Measuring CO2 & tvoc / Air quality                            |
 
 ### I²C communication
 
@@ -130,6 +130,7 @@ Example payload:
   "humidity": 46.2,
   "window_distance": 128,
   "CO2": 453,
+  "tvoc": 34,
   "window_state": "open"
 }
 ```
@@ -175,6 +176,8 @@ For each received MQTT message, the system logs:
 * timestamp,
 * temperature,
 * humidity,
+* CO2
+* tvoc
 * window measurement.
 
 This database enables:
@@ -209,6 +212,7 @@ The dashboard displays key environmental information in real time, including:
 * **Indoor temperature**
 * **Indoor humidity**
 * **CO2 ppm**
+* **tvoc ppb**
 * **Window state (open / closed)**
 * **Heater status**
 
