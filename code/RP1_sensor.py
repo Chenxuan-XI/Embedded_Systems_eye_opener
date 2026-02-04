@@ -31,6 +31,16 @@ SI7021_ADDR = 0x40
 SI7021_READ_TEMPERATURE = 0xF3
 SI7021_READ_HUMIDITY = 0xF5
 
+# CCS811 (CO2) definitions
+CCS811_ADDR = 0x5A
+CCS811_REG_MEAS_MODE = 0x01
+CCS811_REG_ALG_RESULT = 0x02
+CCS811_REG_HW_ID = 0x20
+CCS811_REG_APP_START = 0xF4
+
+CCS811_DATA_READY_MASK = 0x08
+CCS811_ERROR_MASK = 0x01
+
 def read_si7021_temperature():
     write = i2c_msg.write(SI7021_ADDR, [SI7021_READ_TEMPERATURE])
     bus.i2c_rdwr(write)
@@ -61,6 +71,33 @@ def read_si7021_humidity():
 
     humidity = (125.0 * raw) / 65536.0 - 6.0
     return humidity
+
+def init_ccs811(bus):
+    if bus.read_byte_data(CCS811_ADDR, CCS811_REG_HW_ID) != 0x81:
+        raise RuntimeError("CCS811 not found")
+
+    bus.write_i2c_block_data(CCS811_ADDR, CCS811_REG_APP_START, [])
+    time.sleep(0.1)
+
+    # Drive mode 1 (1s)
+    bus.write_byte_data(CCS811_ADDR, CCS811_REG_MEAS_MODE, 0b00010000)
+    time.sleep(1.0)
+
+
+def read_ccs811_valid(bus):
+    data = bus.read_i2c_block_data(CCS811_ADDR, CCS811_REG_ALG_RESULT, 8)
+
+    status = data[4]
+    if status & CCS811_ERROR_MASK or not (status & CCS811_DATA_READY_MASK):
+        return None
+
+    eco2 = (data[0] << 8) | data[1]
+    tvoc = (data[2] << 8) | data[3]
+
+    if eco2 >= 32768:  # invalid marker
+        return None
+
+    return eco2, tvoc
 
 def read_distance_cm():
     trig.set_value(1)
@@ -95,6 +132,16 @@ echo = chip.get_line(ECHO)
 trig.request(consumer="hcsr04_trig", type=gpiod.LINE_REQ_DIR_OUT)
 echo.request(consumer="hcsr04_echo", type=gpiod.LINE_REQ_DIR_IN)
 
+co2_available = False
+last_co2_ppm = None
+last_tvoc_ppb = None
+try:
+    init_ccs811(bus)
+    co2_available = True
+    print("CCS811 initialized")
+except Exception as e:
+    print("CCS811 init failed:", e)
+
 
 # Main loop
 while True:
@@ -106,11 +153,25 @@ while True:
         temperature = read_si7021_temperature()
         humidity = read_si7021_humidity()
 
+        co2_ppm = last_co2_ppm
+        tvoc_ppb = last_tvoc_ppb
+        if co2_available:
+            try:
+                result = read_ccs811_valid(bus)
+                if result:
+                    co2_ppm, tvoc_ppb = result
+                    last_co2_ppm = co2_ppm
+                    last_tvoc_ppb = tvoc_ppb
+            except OSError as e:
+                print("CCS811 read error:", e)
+
         payload = {
             "timestamp": int(time.time()),
             "window": distance_cm,
             "temperature": temperature,
             "humidity": humidity, 
+            "co2_ppm": co2_ppm,
+            "tvoc_ppb": tvoc_ppb,
         }
 
         # MSG_INFO = client.publish("IC.embedded/GroupJay",adc_value)
