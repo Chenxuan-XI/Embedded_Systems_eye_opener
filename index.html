@@ -4,84 +4,261 @@
   <meta charset="UTF-8">
   <title>Embedded Systems Eye Opener</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont;
       margin: 0;
-      padding: 40px;
-      background: #0b1220;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont;
+      background: radial-gradient(1200px 600px at 10% -10%, #1b2a4e, #0b1220);
       color: #e6edf3;
-      line-height: 1.6;
+      line-height: 1.7;
     }
-    h1, h2 {
-      color: #ffffff;
+
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 80px 40px;
     }
-    .section {
+
+    /* ===== HERO ===== */
+    .hero {
+      padding: 120px 0 80px 0;
+    }
+
+    h1 {
+      font-size: 3.2rem;
+      margin-bottom: 20px;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 1.3rem;
+      max-width: 720px;
+      color: #b8c3ff;
+    }
+
+    .badges {
+      margin-top: 40px;
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      padding: 10px 18px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      font-size: 0.9rem;
+    }
+
+    /* ===== CARDS ===== */
+    .cards {
+      margin-top: 80px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+
+    .card {
+      display: block;
+      padding: 28px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      text-decoration: none;
+      color: white;
+      transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s;
+    }
+
+    .card h3 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      font-size: 1.25rem;
+    }
+
+    .card p {
+      color: #cfd6ff;
+      font-size: 0.95rem;
+    }
+
+    .card:hover {
+      transform: translateY(-6px);
+      background: rgba(255,255,255,0.1);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+
+    /* ===== SECTIONS ===== */
+    section {
+      margin-top: 140px;
       max-width: 900px;
-      margin-bottom: 60px;
     }
+
+    h2 {
+      font-size: 1.9rem;
+      margin-bottom: 18px;
+    }
+
+    p {
+      color: #d6dcff;
+      font-size: 1.05rem;
+    }
+
+    footer {
+      margin-top: 160px;
+      padding: 40px 0;
+      border-top: 1px solid rgba(255,255,255,0.12);
+      color: #9aa4ff;
+      font-size: 0.9rem;
+    }
+
+    /* ===== HERO VIDEO BACKGROUND ===== */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .hero video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      z-index: 0;
+      filter: brightness(0.55) saturate(1.1);
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(11,18,32,0.75),
+        rgba(11,18,32,0.95)
+      );
+      z-index: 1;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      max-width: 1100px;
+      padding: 120px 40px;
+      margin: 0 auto;
+    }
+
   </style>
+  
 </head>
+
 <body>
 
-  <div class="section">
+<div class="container">
+
+  <!-- ===== HERO ===== -->
+<div class="hero">
+
+  <video autoplay muted loop playsinline>
+    <source src="assets/hero-bg.mp4" type="video/mp4">
+  </video>
+
+  <div class="hero-content">
     <h1>Embedded Systems Eye Opener</h1>
-    <p>
+    <p class="subtitle">
       A smart IoT system that detects open windows and indoor conditions,
-      preventing unnecessary heating energy waste.
+      preventing unnecessary heating energy waste automatically.
     </p>
+
+    <div class="badges">
+      <div class="badge">🌡 Temperature & Humidity Aware</div>
+      <div class="badge">🪟 Window State Detection</div>
+      <div class="badge">🔥 Smart Heater Control</div>
+      <div class="badge">📡 MQTT-based Architecture</div>
+    </div>
+
+    <div class="cards">
+      <a href="#problem" class="card">
+        <h3>The Problem</h3>
+        <p>Why heating energy is wasted in real homes</p>
+      </a>
+
+      <a href="#solution" class="card">
+        <h3>The Solution</h3>
+        <p>How sensor fusion enables smart decisions</p>
+      </a>
+
+      <a href="#system" class="card">
+        <h3>System Overview</h3>
+        <p>Embedded node, MQTT, and web interface</p>
+      </a>
+
+      <a href="#future" class="card">
+        <h3>Future Work</h3>
+        <p>Scalable, adaptive, and smart-home ready</p>
+      </a>
+    </div>
   </div>
 
-  <div class="section">
+</div>
+
+
+  <!-- ===== CONTENT SECTIONS ===== -->
+  <section id="problem">
     <h2>The Problem</h2>
     <p>
-      Heating energy is often wasted when windows are left open while heating is on.
-      This system automatically detects this situation and reacts intelligently.
+      Heating energy is frequently wasted when windows are left open while
+      heating systems remain active. This often happens unintentionally,
+      leading to increased costs and reduced energy efficiency.
     </p>
-  </div>
+  </section>
 
-  <div class="section">
+  <section id="solution">
     <h2>The Solution</h2>
     <p>
-      By fusing temperature, humidity, and window state data, the system
-      provides real-time recommendations and heater control.
+      Embedded Systems Eye Opener continuously monitors indoor temperature,
+      humidity, and window state. By fusing sensor data, the system detects
+      inefficient conditions and responds with clear recommendations or
+      automatic heater control.
     </p>
-  </div>
+    <p>
+      This approach reduces heating costs, improves energy efficiency, and
+      increases user awareness with minimal user intervention.
+    </p>
+  </section>
 
-<div class="section">
-  <h2>System Overview</h2>
-  <p>
-    The system consists of an embedded sensor node, an MQTT communication
-    layer, and a web-based user interface for monitoring and control.
-  </p>
-</div>
-  
-<div class="section">
-  <h2>Hardware & Sensors</h2>
-  <p>
-    A Raspberry Pi collects temperature, humidity, and window state data
-    using I2C sensors and publishes them via MQTT.
-  </p>
-</div>
+  <section id="system">
+    <h2>System Overview</h2>
+    <p>
+      The system consists of an embedded Raspberry Pi sensor node, an MQTT-based
+      communication layer, and a web-based user interface. Sensor data is sampled,
+      transmitted, processed, and visualised in real time.
+    </p>
+  </section>
 
-<div class="section">
-  <h2>Web Interface</h2>
-  <p>
-    A real-time dashboard visualises sensor data and allows heater control
-    through MQTT over WebSocket.
-  </p>
-</div>
+  <section id="future">
+    <h2>Future Work</h2>
+    <p>
+      Future development may include multi-room deployment, adaptive decision
+      thresholds using historical data, integration with smart heating systems,
+      and enhanced robustness during network outages.
+    </p>
+  </section>
 
-<div class="section">
-  <h2>Future Work</h2>
-  <p>
-    Future extensions include multi-room support, adaptive decision logic,
-    and integration with smart heating systems.
-  </p>
-</div>
+  <footer>
+    © 2026 Embedded Systems Eye Opener — IoT Coursework Project
+  </footer>
 
+</div>
 
 </body>
 </html>
-
-
