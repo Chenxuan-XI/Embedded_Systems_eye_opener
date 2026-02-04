@@ -1,6 +1,9 @@
 # Embedded_Systems_Eye_Opener
 An embedded IoT system that detects window open/closed states using an ultrasonic proximity sensor and external ADC, and combines temperature and humidity data to provide user recommendations on when to open or close the heater.
 
+## 🌐 Live Website
+👉 https://chenxuan-xi.github.io/Embedded_Systems_eye_opener/
+
 ---
 
 ## What it does
