@@ -36,4 +36,6 @@ client.connect(BROKER_IP, 1883, 60)
 client.subscribe(TOPIC)
 client.on_message = on_message
 
+print("Client Started. Listening for Servo Control Signals...")
+
 client.loop_forever()
