@@ -261,6 +261,22 @@
       <div class="muted">Updated: <span id="winAt">--</span></div>
     </div>
 
+    <div class="card half">
+      <h2>CO2 (eCO2)</h2>
+      <div class="kv">
+        <div class="big"><span id="co2Value">--</span> ppm</div>
+      </div>
+      <div class="muted">Updated: <span id="co2At">--</span></div>
+    </div>
+
+    <div class="card half">
+      <h2>TVOC</h2>
+      <div class="kv">
+        <div class="big"><span id="tvocValue">--</span> ppb</div>
+      </div>
+      <div class="muted">Updated: <span id="tvocAt">--</span></div>
+    </div>
+
     <!-- Heater Control -->
     <div class="card third">
       <h2>Heater</h2>
@@ -278,6 +294,14 @@
     </div>
 
     <div class="card">
+      <h2>Alerts</h2>
+      <div class="kv">
+        <div class="big"><span id="alertValue">--</span></div>
+      </div>
+      <div class="muted">Updated: <span id="alertAt">--</span></div>
+    </div>
+
+    <div class="card">
       <h2>Log</h2>
       <div class="log" id="log"></div>
     </div>
@@ -287,9 +311,11 @@
 
 <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 <script>
+  const INITIAL_HEATER_STATE = {{ current_heater_state|tojson|safe }};
   // ===== Fixed MQTT Topics (telemetry only) =====
   const TOPIC_SENSORS = "cx/iotbox01/sensors";
   const TOPIC_HEATER  = "cx/iotbox01/heater";
+  const TOPIC_ALERT   = "cx/iotbox01/alert";
 
   const connDot = document.getElementById("connDot");
   const connText = document.getElementById("connText");
@@ -297,14 +323,20 @@
   const tempValue = document.getElementById("tempValue");
   const humValue  = document.getElementById("humValue");
   const winValue  = document.getElementById("winValue");
+  const co2Value  = document.getElementById("co2Value");
+  const tvocValue = document.getElementById("tvocValue");
 
   const heaterStateText = document.getElementById("heaterStateText");
   const heaterToggle = document.getElementById("heaterToggle");
+  const alertValue = document.getElementById("alertValue");
 
   const tempAt = document.getElementById("tempAt");
   const humAt  = document.getElementById("humAt");
   const winAt  = document.getElementById("winAt");
+  const co2At  = document.getElementById("co2At");
+  const tvocAt = document.getElementById("tvocAt");
   const heaterAt = document.getElementById("heaterAt");
+  const alertAt = document.getElementById("alertAt");
 
   const logEl = document.getElementById("log");
   const btnConnect = document.getElementById("btnConnect");
@@ -404,28 +436,32 @@
   // ===== NEW: manual rule flip (no timers) =====
   async function manualRuleFlip(cmd){
     if (cmd === "ON") {
-      const patch = {
-        auto_off_mode: "Off",
-      };
-      try {
-        await saveSettings(patch);
-        seg1?.setActive("Off");
-        log("Manual heater ON → disable auto turn OFF");
-      } catch (e) {
-        log(`❌ Manual flip failed (auto turn OFF): ${e.message}`);
+      if (currentAutoOff === "Automatic" || currentAutoOff === "Smart") {
+        const patch = {
+          auto_off_mode: "Alert",
+        };
+        try {
+          await saveSettings(patch);
+          seg1?.setActive("Alert");
+          log("Manual heater ON → set auto turn OFF to Alert");
+        } catch (e) {
+          log(`❌ Manual flip failed (auto turn OFF): ${e.message}`);
+        }
       }
     }
 
     if (cmd === "OFF") {
-      const patch = {
-        auto_on_mode: "Off",
-      };
-      try {
-        await saveSettings(patch);
-        seg2?.setActive("Off");
-        log("Manual heater OFF → disable auto turn ON");
-      } catch (e) {
-        log(`❌ Manual flip failed (auto turn ON): ${e.message}`);
+      if (currentAutoOn === "Automatic" || currentAutoOn === "Smart") {
+        const patch = {
+          auto_on_mode: "Alert",
+        };
+        try {
+          await saveSettings(patch);
+          seg2?.setActive("Alert");
+          log("Manual heater OFF → set auto turn ON to Alert");
+        } catch (e) {
+          log(`❌ Manual flip failed (auto turn ON): ${e.message}`);
+        }
       }
     }
   }
@@ -460,6 +496,23 @@
 
     lastHeaterCmd = cmd;
     setHeaterUI(cmd);
+  }
+
+  function handleAlertMessage(raw){
+    let msg = raw;
+    try {
+      const obj = JSON.parse(raw);
+      if (obj && typeof obj === "object") {
+        const cmd = obj.command ? String(obj.command) : "";
+        const reason = obj.reason ? String(obj.reason) : "";
+        if (reason && cmd) msg = `${reason} (${cmd})`;
+        else if (reason) msg = reason;
+        else if (cmd) msg = cmd;
+      }
+    } catch (e) {}
+
+    alertValue.textContent = msg || "--";
+    alertAt.textContent = now();
   }
 
   // ===== Sidebar segmented controls =====
@@ -549,6 +602,11 @@
         await saveSettings({ open_window_health_alert: val });
       });
 
+      if (data.open_window_health_alert !== "ON") {
+        await saveSettings({ open_window_health_alert: "ON" });
+        seg3?.setActive("ON");
+      }
+
       settingsStatus.textContent = `Settings loaded at ${now()}`;
     } catch (e) {
       settingsStatus.textContent = `Failed to load settings: ${e.message || e}`;
@@ -602,9 +660,9 @@
       btnDisconnect.disabled = false;
       heaterToggle.disabled = false;
 
-      client.subscribe([TOPIC_SENSORS, TOPIC_HEATER], (err) => {
+      client.subscribe([TOPIC_SENSORS, TOPIC_HEATER, TOPIC_ALERT], (err) => {
         if (err) log("❌ subscribe error: " + (err.message || err));
-        else log(`✅ subscribed to ${TOPIC_SENSORS} and ${TOPIC_HEATER}`);
+        else log(`✅ subscribed to ${TOPIC_SENSORS}, ${TOPIC_HEATER}, and ${TOPIC_ALERT}`);
       });
     });
 
@@ -618,6 +676,8 @@
           const t = safeNumber(data.temperature);
           const h = safeNumber(data.humidity);
           const w = safeNumber(data.window);
+          const c = safeNumber(data.co2_ppm);
+          const v = safeNumber(data.tvoc_ppb);
 
           tempValue.textContent = (t !== null) ? t.toFixed(1) : "--";
           humValue.textContent  = (h !== null) ? h.toFixed(1) : "--";
@@ -625,7 +685,11 @@
           if (w !== null) winValue.textContent = w.toFixed(0);
           else winValue.textContent = String(data.window ?? "--");
 
+          co2Value.textContent = (c !== null) ? c.toFixed(0) : "--";
+          tvocValue.textContent = (v !== null) ? v.toFixed(0) : "--";
+
           tempAt.textContent = humAt.textContent = winAt.textContent = now();
+          co2At.textContent = tvocAt.textContent = now();
         } catch(e){
           log("❌ JSON parse error: " + e.message);
         }
@@ -634,6 +698,11 @@
 
       if (topic === TOPIC_HEATER) {
         handleHeaterMessage(raw);
+        return;
+      }
+
+      if (topic === TOPIC_ALERT) {
+        handleAlertMessage(raw);
         return;
       }
     });
@@ -663,6 +732,10 @@
   };
 
   setConn(false, "Disconnected");
+  if (INITIAL_HEATER_STATE) {
+    lastHeaterCmd = INITIAL_HEATER_STATE;
+    setHeaterUI(INITIAL_HEATER_STATE);
+  }
   loadSettings();
 </script>
 </body>

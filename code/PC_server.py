@@ -22,18 +22,30 @@ MQTT_BROKER = "10.215.255.119"
 MQTT_PORT = 1883
 TOPIC_SENSOR = "cx/iotbox01/sensors"
 TOPIC_HEATER = "cx/iotbox01/heater"
+TOPIC_ALERT = "cx/iotbox01/alert"
 
 # ======================
 # Control thresholds / tuning
 # ======================
 WINDOW_OPEN_THRESHOLD = 20
 TEMP_OFF_HYSTERESIS = 3.0
+CO2_ALERT_THRESHOLD = 500
+CO2_ALERT_COOLDOWN_SEC = 60 * 60
+TVOC_ALERT_THRESHOLD = 600
+TVOC_ALERT_COOLDOWN_SEC = 60 * 60
+HUM_ALERT_COOLDOWN_SEC = 60 * 60
+HEATER_ALERT_COOLDOWN_SEC = 30 * 60
 
 # "bad for my health" thresholds (adjust to your needs)
 TEMP_BAD_LOW = 16.0
 TEMP_BAD_HIGH = 28.0
 HUM_BAD_LOW = 30.0
 HUM_BAD_HIGH = 70.0
+
+last_co2_alert_ts = 0.0
+last_hum_alert_ts = 0.0
+last_tvoc_alert_ts = 0.0
+last_heater_alert_ts = 0.0
 
 DEFAULT_THRESHOLDS = {
     "T_cold": 18.0,
@@ -80,6 +92,49 @@ def load_recent_window_values(limit=10, db_file=None):
         try:
             if win is not None:
                 values.append(float(win))
+        except (TypeError, ValueError):
+            continue
+    return values
+
+def load_recent_CO2_values(limit=10, db_file=None):
+    db_file = db_file or DB_FILE
+    conn = sqlite3.connect(db_file)
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT co2_ppm FROM sensor_log ORDER BY time DESC LIMIT ?",
+        (limit,)
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    values = []
+    for (co2,) in rows:
+        try:
+            if co2 is not None:
+                values.append(float(co2))
+        except (TypeError, ValueError):
+            continue
+    return values
+
+def load_recent_TVOC_values(limit=10, db_file=None):
+    db_file = db_file or DB_FILE
+    conn = sqlite3.connect(db_file)
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "SELECT tvoc_ppb FROM sensor_log ORDER BY time DESC LIMIT ?",
+            (limit,)
+        )
+        rows = cur.fetchall()
+    except sqlite3.OperationalError:
+        rows = []
+    conn.close()
+
+    values = []
+    for (tvoc,) in rows:
+        try:
+            if tvoc is not None:
+                values.append(float(tvoc))
         except (TypeError, ValueError):
             continue
     return values
@@ -192,6 +247,12 @@ def publish_heater(cmd: str, reason: str = ""):
     mqtt_client.publish(TOPIC_HEATER, payload)
     print(f"[MQTT] publish {TOPIC_HEATER} {payload}")
 
+def publish_alert(cmd: str, reason: str = ""):
+
+    payload = json.dumps({"command": cmd, "reason": reason})
+    mqtt_client.publish(TOPIC_ALERT, payload)
+    print(f"[MQTT] publish {TOPIC_ALERT} {payload}")
+
 
 def send_phone_notification(title: str, message: str):
     """
@@ -301,6 +362,8 @@ def on_message(client, userdata, msg):
     window = data.get("window")
     temperature = data.get("temperature")
     humidity = data.get("humidity")
+    co2_ppm = data.get("co2_ppm")
+    tvoc_ppb = data.get("tvoc_ppb")
 
     def to_float(x):
         try:
@@ -311,14 +374,16 @@ def on_message(client, userdata, msg):
     window_val = to_float(window)
     temp_val = to_float(temperature)
     hum_val = to_float(humidity)
+    co2_val = to_float(co2_ppm)
+    tvoc_val = to_float(tvoc_ppb)
 
     if window_val is None:
         print("No valid window value in payload")
         return
 
     # window average from DB: last 10 values, drop min/max
-    values = load_recent_window_values(limit=10, db_file="sensor.db")
-    avg_window = trimmed_mean(values)
+    win_values = load_recent_window_values(limit=10, db_file="sensor.db")
+    avg_window = trimmed_mean(win_values)
     if avg_window is None:
         avg_window = window_val
 
@@ -328,6 +393,59 @@ def on_message(client, userdata, msg):
 
     # health alert hook
     maybe_send_health_alert(temp_val, hum_val, window_is_open)
+
+    co2_values = load_recent_CO2_values(limit=10, db_file="sensor.db")
+    avg_co2 = trimmed_mean(co2_values)
+    if avg_co2 is None:
+        avg_co2 = co2_val
+
+    
+    global last_co2_alert_ts
+    now_ts = time.time()
+    with state_lock:
+        window_alert_enabled = (settings["open_window_health_alert"] == "ON")
+
+    co2_condition = (
+        window_alert_enabled
+        and avg_co2 is not None
+        and avg_co2 > CO2_ALERT_THRESHOLD
+        and not window_is_open
+        and (now_ts - last_co2_alert_ts) >= CO2_ALERT_COOLDOWN_SEC
+    )
+
+    if co2_condition:
+        last_co2_alert_ts = now_ts
+        publish_alert("Please consider opening your window", "Unhealthy CO2 Level.")
+
+    global last_hum_alert_ts
+    hum_condition = (
+        window_alert_enabled
+        and hum_val is not None
+        and hum_val > HUM_BAD_HIGH
+        and not window_is_open
+        and (now_ts - last_hum_alert_ts) >= HUM_ALERT_COOLDOWN_SEC
+    )
+    if hum_condition:
+        last_hum_alert_ts = now_ts
+        publish_alert("Please consider opening your window", "High humidity detected.")
+
+    tvoc_values = load_recent_TVOC_values(limit=10, db_file="sensor.db")
+    avg_tvoc = trimmed_mean(tvoc_values)
+    if avg_tvoc is None:
+        avg_tvoc = tvoc_val
+
+    global last_tvoc_alert_ts
+    tvoc_condition = (
+        window_alert_enabled
+        and avg_tvoc is not None
+        and avg_tvoc > TVOC_ALERT_THRESHOLD
+        and not window_is_open
+        and (now_ts - last_tvoc_alert_ts) >= TVOC_ALERT_COOLDOWN_SEC
+    )
+    if tvoc_condition:
+        last_tvoc_alert_ts = now_ts
+        publish_alert("Please consider opening your window", "High TVOC detected.")
+    
 
     # Read settings (no manual override timer anymore)
     with state_lock:
@@ -349,25 +467,35 @@ def on_message(client, userdata, msg):
     cmds = []
     reason = None
 
+    global last_heater_alert_ts
+    now_ts = time.time()
     # Automatic window-based actions
     if window_is_open:
         if auto_off_mode == "Automatic":
             cmds.append("OFF")
             reason = "Window open – automatic OFF"
         elif auto_off_mode == "Alert":
-            send_phone_notification(
-                "Window open",
-                "Window appears open. Heater NOT auto-turned off (Alert mode)."
-            )
+            send_alert = (time.time()-last_co2_alert_ts >= HEATER_ALERT_COOLDOWN_SEC
+                          and current_heater_state == "ON")
+            if(send_alert):
+                publish_alert("Please consider turning off you heater", "Window is Opened")
+                send_phone_notification(
+                    "Window open",
+                    "Window appears open. Heater NOT auto-turned off (Alert mode)."
+                )
     else:
         if auto_on_mode == "Automatic":
             cmds.append("ON")
             reason = "Window closed – automatic ON"
         elif auto_on_mode == "Alert":
-            send_phone_notification(
-                "Window shut",
-                "Window appears shut. Heater NOT auto-turned on (Alert mode)."
-            )
+            send_alert = (time.time()-last_co2_alert_ts >= HEATER_ALERT_COOLDOWN_SEC
+                and current_heater_state == "OFF")
+            if(send_alert):
+                publish_alert("Please consider turning on you heater", "Window is Shut")
+                send_phone_notification(
+                    "Window shut",
+                    "Window appears shut. Heater NOT auto-turned on (Alert mode)."
+                )
 
     # Smart decision engine (optional)
     if auto_off_mode == "Smart" or auto_on_mode == "Smart":
@@ -409,7 +537,9 @@ threading.Thread(target=mqtt_loop, daemon=True).start()
 # ======================
 @app.route("/")
 def index():
-    return render_template("index.html")
+    with state_lock:
+        current_state = last_published_heater
+    return render_template("index.html", current_heater_state=current_state)
 
 
 @app.route("/api/heater", methods=["POST"])
