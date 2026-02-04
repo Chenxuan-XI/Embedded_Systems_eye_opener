@@ -25,6 +25,7 @@ def mqtt_loop():
 threading.Thread(target=mqtt_loop, daemon=True).start()
 
 bus = SMBus(1)
+bus3 = SMBus(3)
 
 # Si7021 definitions
 SI7021_ADDR = 0x40
@@ -136,7 +137,7 @@ co2_available = False
 last_co2_ppm = None
 last_tvoc_ppb = None
 try:
-    init_ccs811(bus)
+    init_ccs811(bus3)
     co2_available = True
     print("CCS811 initialized")
 except Exception as e:
@@ -157,7 +158,7 @@ while True:
         tvoc_ppb = last_tvoc_ppb
         if co2_available:
             try:
-                result = read_ccs811_valid(bus)
+                result = read_ccs811_valid(bus3)
                 if result:
                     co2_ppm, tvoc_ppb = result
                     last_co2_ppm = co2_ppm
